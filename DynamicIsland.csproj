@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Version>1.21.0</Version>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
@@ -12,6 +13,28 @@
     <RootNamespace>DynamicIsland</RootNamespace>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
+
+      <!--
+          The Publish configuration folds the whole program into one DynamicIsland.exe, runtime included.
+          Build it with:  dotnet publish -c Publish
+          The exe lands under bin\Publish\net8.0-windows10.0.19041.0\win-x64\publish\
+        -->
+        <PropertyGroup Condition=" '$(Configuration)' == 'Publish' ">
+          <PublishSingleFile>true</PublishSingleFile>
+          <SelfContained>true</SelfContained>
+          <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+          <!-- WPF assemblies cannot be loaded straight out of a bundle, so they are unpacked on first run -->
+          <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+          <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+
+          <!-- a smaller exe: the managed assemblies ride along deflated -->
+          <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+
+          <DebugType>none</DebugType>
+          <DebugSymbols>false</DebugSymbols>
+          <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        </PropertyGroup>
 
   <ItemGroup>
     <Resource Include="Fonts\*.otf;Fonts\*.ttf" />

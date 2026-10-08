@@ -155,6 +155,7 @@ public partial class MainWindow
 
     void SyncEq()
     {
+        _spectrum.Source = Settings.AppSpectrum ? _media.Source : "";
         _spectrum.Active = IsEqVisible && _media.IsPlaying;
         if (IsEqVisible) _eqLoop.Start();
     }

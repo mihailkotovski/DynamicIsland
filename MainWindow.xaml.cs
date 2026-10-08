@@ -37,7 +37,7 @@ public partial class MainWindow : Window
         [View.RecordBig] = new(340, 92, 40),
         [View.RecordSet] = new(320, 92, 40),
         [View.Menu] = new(300, 288, 34),
-        [View.Settings] = new(320, 374, 34),
+        [View.Settings] = new(320, 414, 34),
         [View.Look] = new(352, LookHeight, 34),
         [View.Shelf] = new(380, 136, 34),
         [View.Update] = new(320, 150, 34),

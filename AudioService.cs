@@ -86,6 +86,35 @@ sealed class AudioService
         return found;
     }
 
+    /// <summary>The processes that have a sound session on the default playback device right now.</summary>
+    public static IEnumerable<uint> SessionProcesses()
+    {
+        if (Mixer() is not { } mixer) yield break;
+        IAudioSessionEnumerator? sessions = null;
+        try
+        {
+            if (mixer.GetSessionEnumerator(out sessions) != 0 || sessions == null || sessions.GetCount(out int count) != 0) yield break;
+            for (int i = 0; i < count; i++)
+            {
+                if (sessions.GetSession(i, out object? session) != 0 || session == null) continue;
+                try
+                {
+                    if (session is IAudioSessionControl2 control && control.GetProcessId(out uint process) == 0 && process != 0)
+                        yield return process;
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(session);
+                }
+            }
+        }
+        finally
+        {
+            if (sessions != null) Marshal.ReleaseComObject(sessions);
+            Marshal.ReleaseComObject(mixer);
+        }
+    }
+
     static IEnumerable<object> Sessions()
     {
         IAudioSessionManager2? mixer = Mixer();
