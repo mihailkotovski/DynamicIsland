@@ -372,7 +372,7 @@ sealed class MediaService
                 return false;
             }
 
-            TimeSpan duration = timeline.EndTime - timeline.StartTime;
+            TimeSpan duration = timeline.EndTime > timeline.StartTime ? timeline.EndTime - timeline.StartTime : TimeSpan.Zero;
             bool resized = duration != _duration;
             _duration = duration;
             if (timeline.LastUpdatedTime == _timelineStamp) return resized;

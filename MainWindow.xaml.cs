@@ -166,7 +166,7 @@ public partial class MainWindow : Window
         ApplyTimerTint();
         ApplyRecordTint();
         TuneDragSprings(false);
-        _ticker.Tick += (_, _) => OnTick();
+        _ticker.Tick += (_, _) => TickSafely();
         Loaded += OnLoaded;
     }
 
@@ -294,6 +294,18 @@ public partial class MainWindow : Window
         Root.BeginAnimation(OpacityProperty, fade);
         _scale.Target = _bubbleScale.Target = 0.5;
         StartShapeLoop();
+    }
+
+    void TickSafely()
+    {
+        try
+        {
+            OnTick();
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+        }
     }
 
     void OnTick()
