@@ -10,6 +10,7 @@ sealed class SpectrumService
     const int FormatPcm = 1, FormatFloat = 3, FormatExtensible = 0xFFFE;
     const int TagOffset = 0, ChannelsOffset = 2, RateOffset = 4, BitsOffset = 14, SubFormatOffset = 24;
     const float PcmFullScale = 32768f;
+    const int ProcessRate = 48000, ProcessChannels = 2;
     const long BufferDuration = 2_000_000;
     const int PollMs = 8, SilenceMs = 80, LingerMs = 3000, RetryMs = 2000, DeviceCheckMs = 2000, DrainRetryMs = 200;
 
@@ -22,8 +23,11 @@ sealed class SpectrumService
 
     IAudioClient? _client;
     IAudioCaptureClient? _capture;
+    ProcessLoopback? _process;
     SpectrumAnalyzer? _analyzer;
     string? _deviceId;
+    string _source = "";
+    string _processApp = "";
     int _channels;
     bool _float;
     float[] _samples = [];
@@ -56,6 +60,20 @@ sealed class SpectrumService
         return true;
     }
 
+    public string Source
+    {
+        get => _source;
+        set
+        {
+            if (_source == value) return;
+            _source = value;
+            _wake.Set();
+        }
+    }
+
+    bool PerApp => _source.Length > 0;
+    bool IsOpen => _process != null || _capture != null;
+
     void CaptureLoop()
     {
         long lastActive = Environment.TickCount64, lastCheck = 0;
@@ -72,7 +90,14 @@ sealed class SpectrumService
 
             try
             {
-                if (_capture == null)
+                if (IsOpen && _processApp != _source)
+                {
+                    Close();
+                    Thread.Sleep(RetryMs);
+                    continue;
+                }
+
+                if (!IsOpen)
                 {
                     _failed = !Open();
                     if (_failed)
@@ -83,7 +108,7 @@ sealed class SpectrumService
                     }
                     lastCheck = now;
                 }
-                else if (now - lastCheck > DeviceCheckMs)
+                else if (_process == null && now - lastCheck > DeviceCheckMs)
                 {
                     lastCheck = now;
                     if (AudioEndpoint.DefaultId() != _deviceId)
@@ -114,6 +139,12 @@ sealed class SpectrumService
     }
 
     bool Open()
+    {
+        _processApp = _source;
+        return PerApp ? OpenProcess() : OpenDevice();
+    }
+
+    bool OpenDevice()
     {
         IMMDevice? device = AudioEndpoint.Default();
         if (device == null) return false;
@@ -156,12 +187,38 @@ sealed class SpectrumService
         }
     }
 
+    bool OpenProcess()
+    {
+        uint pid = ProcessLoopback.ResolvePid(_source);
+        if (pid == 0) return false;
+
+        _channels = ProcessChannels;
+        _float = false;
+
+        var handle = new ProcessLoopback(pid);
+        if (!handle.Open()) return false;
+        _process = handle;
+
+        _analyzer = new SpectrumAnalyzer(ProcessRate);
+        _lastDataAt = 0;
+        return true;
+    }
+
     void Close()
     {
-        try { _client?.Stop(); }
-        catch { }
-        if (_capture != null) Marshal.ReleaseComObject(_capture);
-        if (_client != null) Marshal.ReleaseComObject(_client);
+        if (_process != null)
+        {
+            try { _process.Dispose(); }
+            catch (Exception ex) { App.Log(ex); }
+            _process = null;
+        }
+        else
+        {
+            try { _client?.Stop(); }
+            catch { }
+            if (_capture != null) Marshal.ReleaseComObject(_capture);
+            if (_client != null) Marshal.ReleaseComObject(_client);
+        }
         _capture = null;
         _client = null;
         _analyzer = null;
@@ -170,6 +227,7 @@ sealed class SpectrumService
 
     bool Drain()
     {
+        if (_process != null) return DrainProcess();
         while (true)
         {
             if (_capture!.GetNextPacketSize(out uint frames) < 0) return false;
@@ -178,6 +236,17 @@ sealed class SpectrumService
             if (frames == 0) return true;
             Push(data, (int)frames, (flags & BufferSilent) != 0);
             _capture.ReleaseBuffer(frames);
+        }
+    }
+
+    bool DrainProcess()
+    {
+        while (true)
+        {
+            if (!_process!.Next(out IntPtr data, out int frames, out bool silent)) return false;
+            if (frames == 0) return true;
+            Push(data, frames, silent);
+            _process.Release(frames);
         }
     }
 

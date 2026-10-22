@@ -21,3 +21,5 @@ publish/
 Thumbs.db
 Desktop.ini
 .DS_Store
+# Local Copilot instructions; committed guidance lives in AGENTS.md
+.github/copilot-instructions.md

@@ -101,6 +101,13 @@ public partial class MainWindow
         UpdateSwitches(true);
     }
 
+    void AppSpectrum_Click(object sender, RoutedEventArgs e)
+    {
+        Settings.AppSpectrum = !Settings.AppSpectrum;
+        UpdateSwitches(true);
+        SyncEq();
+    }
+
     void Network_Click(object sender, RoutedEventArgs e)
     {
         Settings.Network = !Settings.Network;
@@ -123,6 +130,7 @@ public partial class MainWindow
         LyricPartingSwitch.Set(Settings.LyricParting, animate);
         RimSwitch.Set(Settings.Rim, animate);
         AppVolumeSwitch.Set(Settings.AppVolume, animate);
+        AppSpectrumSwitch.Set(Settings.AppSpectrum, animate);
         NetworkSwitch.Set(Settings.Network, animate);
         WeatherSwitch.Set(Settings.Weather, animate);
         FullscreenSwitch.Set(Settings.HideFullscreen, animate);

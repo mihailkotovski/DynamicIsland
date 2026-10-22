@@ -62,6 +62,7 @@ static class Settings
     static bool _lyrics = ReadSwitch(nameof(Lyrics)), _lyricEffects = ReadSwitch(nameof(LyricEffects));
     static bool _network = ReadSwitch(nameof(Network)), _hideFullscreen = ReadSwitch(nameof(HideFullscreen));
     static bool _rim = ReadSwitch(nameof(Rim)), _appVolume = ReadSwitch(nameof(AppVolume));
+    static bool _appSpectrum = ReadSwitch(nameof(AppSpectrum));
     static bool _weather = ReadSwitch(nameof(Weather));
     static bool _pointerLyric = ReadSwitch(nameof(PointerLyric), false);
     static bool _lyricParting = ReadSwitch(nameof(LyricParting));
@@ -169,6 +170,13 @@ static class Settings
         set => Write(nameof(AppVolume), _appVolume = value);
     }
 
+    public static bool AppSpectrum
+    {
+        get => _appSpectrum;
+        set => Write(nameof(AppSpectrum), _appSpectrum = value);
+    }
+
+    /// <summary>Notices about Wi-Fi, Ethernet and VPN.</summary>
     public static bool Network
     {
         get => _network;
