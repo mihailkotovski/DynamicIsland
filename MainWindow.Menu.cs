@@ -22,6 +22,16 @@ public partial class MainWindow
     readonly Spring _lookScroll = new(0, 260, 30);
     readonly Spring _updateNotesScroll = new(0, 260, 30);
 
+    void IslandMenu_Click(object sender, RoutedEventArgs e) => ToggleMenu();
+
+    void ToggleMenu()
+    {
+        CancelGrab();
+        SelectPanel(_panel == Panel.Menu ? Panel.None : Panel.Menu);
+        UpdateSwitches(false);
+        UpdateView();
+    }
+
     void SettingsRow_Click(object sender, RoutedEventArgs e) => ShowPanelAndCheckUpdate(Panel.Settings);
 
     void UpdateRow_Click(object sender, RoutedEventArgs e) => ShowPanelAndCheckUpdate(Panel.Update);
@@ -101,6 +111,12 @@ public partial class MainWindow
         UpdateSwitches(true);
     }
 
+    void MenuButtonSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        Settings.ShowMenuButton = !Settings.ShowMenuButton;
+        UpdateSwitches(true);
+    }
+
     void Network_Click(object sender, RoutedEventArgs e)
     {
         Settings.Network = !Settings.Network;
@@ -123,6 +139,8 @@ public partial class MainWindow
         LyricPartingSwitch.Set(Settings.LyricParting, animate);
         RimSwitch.Set(Settings.Rim, animate);
         AppVolumeSwitch.Set(Settings.AppVolume, animate);
+        MenuButtonSwitch.Set(Settings.ShowMenuButton, animate);
+        PlayerMenuButton.Visibility = ClockMenuButton.Visibility = Settings.ShowMenuButton ? Visibility.Visible : Visibility.Collapsed;
         NetworkSwitch.Set(Settings.Network, animate);
         WeatherSwitch.Set(Settings.Weather, animate);
         FullscreenSwitch.Set(Settings.HideFullscreen, animate);

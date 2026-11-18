@@ -25,6 +25,7 @@ public partial class MainWindow
     bool _pauseIconShown = true;
     int _setupMinutes = 25, _shownSeconds = -1;
     bool _bubbleHovered, _bubblePressed;
+    bool _menuTimerPresetsOpen;
 
     void ApplyTimerTint()
     {
@@ -154,13 +155,49 @@ public partial class MainWindow
         SetupText.Text = _setupMinutes + ":00";
     }
 
-    void TimerRow_Click(object sender, RoutedEventArgs e) => ShowPanel(_countdown.IsActive ? Panel.Timer : Panel.TimerSet);
+    void TimerRow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_countdown.IsActive)
+        {
+            ShowPanel(Panel.Timer);
+            return;
+        }
+        _menuTimerPresetsOpen = !_menuTimerPresetsOpen;
+        _height.Tune(250, 24);
+        UpdateTargets();
+    }
+
+    void ApplyMenuTimerPresets(double revealed)
+    {
+        MenuTimerPresetClip.IsHitTestVisible = _menuTimerPresetsOpen;
+        if (MenuTimerPresetClip.Height == revealed) return;
+
+        double progress = revealed / MenuTimerPresets.Height;
+        MenuTimerPresetClip.Height = revealed;
+        MenuTimerPresetClip.Visibility = revealed > 0 ? Visibility.Visible : Visibility.Collapsed;
+        MenuTimerPresets.Opacity = progress;
+        ((RotateTransform)MenuTimerChevron.RenderTransform).Angle = 90 * progress;
+        MenuView.Height = PillShapes[View.Menu].Height + revealed;
+    }
+
+    void MenuTimerPreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (_countdown.IsActive) return;
+        SetMinutes(TimerPresetMinutes(sender));
+        _menuTimerPresetsOpen = false;
+        StartTimer(TimeSpan.FromMinutes(_setupMinutes));
+    }
+
+    void MenuTimerCustom_Click(object sender, RoutedEventArgs e) =>
+        ShowPanel(_countdown.IsActive ? Panel.Timer : Panel.TimerSet);
 
     void TimerLess_Click(object sender, RoutedEventArgs e) => SetMinutes(_setupMinutes - 1);
 
     void TimerMore_Click(object sender, RoutedEventArgs e) => SetMinutes(_setupMinutes + 1);
 
-    void TimerPreset_Click(object sender, RoutedEventArgs e) => SetMinutes(int.Parse((string)((Button)sender).Tag));
+    static int TimerPresetMinutes(object sender) => int.Parse((string)((Button)sender).Tag);
+
+    void TimerPreset_Click(object sender, RoutedEventArgs e) => SetMinutes(TimerPresetMinutes(sender));
 
     void TimerStart_Click(object sender, RoutedEventArgs e) => StartTimer(TimeSpan.FromMinutes(_setupMinutes));
 

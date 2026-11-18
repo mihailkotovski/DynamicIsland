@@ -71,6 +71,23 @@
             </Setter>
         </Style>
 
+        <Style x:Key="IslandMenuButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="0,10,16,0"/>
+            <Setter Property="ToolTip" Value="Меню"/>
+            <Setter Property="AutomationProperties.Name" Value="Открыть меню"/>
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <local:Icon Kind="Ellipsis" Width="17" Height="17" Fill="{StaticResource Dim}"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="RowButton" TargetType="Button">
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Foreground" Value="White"/>
@@ -88,15 +105,24 @@
             </Setter>
         </Style>
 
+        <Style x:Key="MenuRowButton" TargetType="Button" BasedOn="{StaticResource RowButton}">
+            <Setter Property="Height" Value="36"/>
+        </Style>
+
         <Style x:Key="Caption" TargetType="TextBlock">
             <Setter Property="FontSize" Value="10.5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{StaticResource Faint}"/>
         </Style>
 
+        <Style x:Key="MenuSectionCaption" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+            <Setter Property="Margin" Value="12,6,0,3"/>
+        </Style>
+
         <Style x:Key="BackButton" TargetType="Button" BasedOn="{StaticResource RowButton}">
             <Setter Property="Height" Value="32"/>
             <Setter Property="Margin" Value="0,0,0,2"/>
+            <Setter Property="local:RowList.Edge" Value="Top"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -648,6 +674,7 @@
                                        TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </Grid>
+                    <Button x:Name="PlayerMenuButton" Style="{StaticResource IslandMenuButton}" Click="IslandMenu_Click"/>
 
                     <Canvas x:Name="PlayerLyricBox" Width="340" Height="70" Margin="0,92,0,0" Opacity="0"
                             HorizontalAlignment="Center" VerticalAlignment="Top"
@@ -729,7 +756,17 @@
                                         Margin="6,1,0,0" VerticalAlignment="Center" Visibility="Collapsed"/>
                         </StackPanel>
                     </StackPanel>
-                    <StackPanel Margin="0,0,24,0" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <StackPanel x:Name="ClockStatus" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Margin" Value="0,0,54,0"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Visibility, ElementName=ClockMenuButton}" Value="Collapsed">
+                                        <Setter Property="Margin" Value="0,0,24,0"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
                         <StackPanel x:Name="InfoWeatherRow" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10"
                                     Visibility="Collapsed">
                             <local:Icon x:Name="InfoWeatherIcon" Kind="Sun" Width="16" Height="16"
@@ -758,6 +795,7 @@
                                           VerticalAlignment="Center"/>
                         </StackPanel>
                     </StackPanel>
+                    <Button x:Name="ClockMenuButton" Style="{StaticResource IslandMenuButton}" Click="IslandMenu_Click"/>
                 </Grid>
 
                 <Grid x:Name="TimerBigView" Width="330" Height="92" HorizontalAlignment="Center" VerticalAlignment="Top">
@@ -875,20 +913,36 @@
                     </Button>
                 </Grid>
 
-                <Grid x:Name="MenuView" Width="300" Height="368" HorizontalAlignment="Center" VerticalAlignment="Top">
+                <Grid x:Name="MenuView" Width="300" Height="384" HorizontalAlignment="Center" VerticalAlignment="Top">
                     <local:RowList Margin="10,14,10,0">
                         <TextBlock Style="{StaticResource Caption}" Text="DYNAMIC ISLAND" Margin="12,0,0,6"/>
-                        <Button Style="{StaticResource RowButton}" Click="TimerRow_Click">
+                        <Button Style="{StaticResource MenuRowButton}" Click="TimerRow_Click" AutomationProperties.Name="Таймер">
                             <Grid>
                                 <local:Icon Style="{StaticResource RowIcon}" Kind="Timer"/>
                                 <TextBlock Style="{StaticResource RowLabel}" Text="Таймер"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                     <local:Digits x:Name="MenuTimer" VerticalAlignment="Center"/>
-                                    <local:Icon Style="{StaticResource RowChevron}" Margin="8,1,0,0"/>
+                                    <local:Icon x:Name="MenuTimerChevron" Style="{StaticResource RowChevron}" Margin="8,1,0,0"
+                                                RenderTransformOrigin="0.5,0.5">
+                                        <local:Icon.RenderTransform>
+                                            <RotateTransform/>
+                                        </local:Icon.RenderTransform>
+                                    </local:Icon>
                                 </StackPanel>
                             </Grid>
                         </Button>
-                        <Button Style="{StaticResource RowButton}" Click="RecordRow_Click">
+                        <Border x:Name="MenuTimerPresetClip" Height="0" ClipToBounds="True" Visibility="Collapsed">
+                            <UniformGrid x:Name="MenuTimerPresets" Rows="1" Height="38" Margin="10,0"
+                                         VerticalAlignment="Top" Opacity="0">
+                                <Button Style="{StaticResource ChipButton}" Tag="5" Content="5 мин" Click="MenuTimerPreset_Click"/>
+                                <Button Style="{StaticResource ChipButton}" Tag="25" Content="25 мин" Click="MenuTimerPreset_Click"/>
+                                <Button Style="{StaticResource ChipButton}" Tag="45" Content="45 мин" Click="MenuTimerPreset_Click"/>
+                                <Button Style="{StaticResource ChipButton}" Content="Другое" Click="MenuTimerCustom_Click"/>
+                            </UniformGrid>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource MenuSectionCaption}" Text="ИНСТРУМЕНТЫ"/>
+                        <Button Style="{StaticResource MenuRowButton}" Click="RecordRow_Click">
                             <Grid>
                                 <local:Icon x:Name="MenuRecordIcon" Style="{StaticResource RowIcon}" Kind="Record"/>
                                 <TextBlock Style="{StaticResource RowLabel}" Text="Запись OBS"/>
@@ -898,7 +952,7 @@
                                 </StackPanel>
                             </Grid>
                         </Button>
-                        <Button Style="{StaticResource RowButton}" Click="ShelfRow_Click">
+                        <Button Style="{StaticResource MenuRowButton}" Click="ShelfRow_Click">
                             <Grid>
                                 <local:Icon Style="{StaticResource RowIcon}" Kind="Tray"/>
                                 <TextBlock Style="{StaticResource RowLabel}" Text="Полка"/>
@@ -908,7 +962,7 @@
                                 </StackPanel>
                             </Grid>
                         </Button>
-                        <Button Style="{StaticResource RowButton}" Click="WeatherRow_Click">
+                        <Button Style="{StaticResource MenuRowButton}" Click="WeatherRow_Click">
                             <Grid>
                                 <local:Icon x:Name="MenuWeatherIcon" Style="{StaticResource RowIcon}" Kind="CloudSun"/>
                                 <TextBlock Style="{StaticResource RowLabel}" Text="Погода"/>
@@ -918,28 +972,29 @@
                                 </StackPanel>
                             </Grid>
                         </Button>
-                        <Button Style="{StaticResource RowButton}" Click="QrRow_Click">
+                        <Button Style="{StaticResource MenuRowButton}" Click="QrRow_Click">
                             <Grid>
                                 <local:Icon Style="{StaticResource RowIcon}" Kind="Qr"/>
                                 <TextBlock Style="{StaticResource RowLabel}" Text="QR-код с экрана"/>
                                 <local:Icon Style="{StaticResource RowChevron}"/>
                             </Grid>
                         </Button>
-                        <Button Style="{StaticResource RowButton}" Click="SettingsRow_Click">
+                        <TextBlock Style="{StaticResource MenuSectionCaption}" Text="НАСТРОЙКИ"/>
+                        <Button Style="{StaticResource MenuRowButton}" Click="SettingsRow_Click">
                             <Grid>
                                 <local:Icon Style="{StaticResource RowIcon}" Kind="Gear"/>
-                                <TextBlock Style="{StaticResource RowLabel}" Text="Настройки"/>
+                                <TextBlock Style="{StaticResource RowLabel}" Text="Общие"/>
                                 <local:Icon Style="{StaticResource RowChevron}"/>
                             </Grid>
                         </Button>
-                        <Button Style="{StaticResource RowButton}" Click="LookRow_Click">
+                        <Button Style="{StaticResource MenuRowButton}" Click="LookRow_Click">
                             <Grid>
                                 <local:Icon Style="{StaticResource RowIcon}" Kind="Look"/>
                                 <TextBlock Style="{StaticResource RowLabel}" Text="Оформление"/>
                                 <local:Icon Style="{StaticResource RowChevron}"/>
                             </Grid>
                         </Button>
-                        <Button Style="{StaticResource RowButton}" Click="Exit_Click">
+                        <Button Style="{StaticResource MenuRowButton}" Margin="0,4,0,0" Click="Exit_Click" local:RowList.Edge="Bottom">
                             <Grid>
                                 <local:Icon Style="{StaticResource RowIcon}" Kind="Power" Fill="{StaticResource Red}"/>
                                 <TextBlock Style="{StaticResource RowLabel}" Text="Закрыть остров" Foreground="{StaticResource Red}"/>
@@ -948,7 +1003,7 @@
                     </local:RowList>
                 </Grid>
 
-                <Grid x:Name="SettingsView" Width="320" Height="374" HorizontalAlignment="Center" VerticalAlignment="Top">
+                <Grid x:Name="SettingsView" Width="320" Height="414" HorizontalAlignment="Center" VerticalAlignment="Top">
                     <local:RowList Margin="10,8,10,0">
                         <Button Style="{StaticResource BackButton}" Content="НАСТРОЙКИ" Click="SettingsBack_Click"/>
                         <Button Style="{StaticResource RowButton}" Click="LyricsRow_Click">
@@ -973,6 +1028,13 @@
                                 <local:Icon Style="{StaticResource RowIcon}" Kind="Mid"/>
                                 <TextBlock Style="{StaticResource RowLabel}" Text="Громкость приложения"/>
                                 <local:Toggle x:Name="AppVolumeSwitch" Style="{StaticResource RowSwitch}"/>
+                            </Grid>
+                        </Button>
+                        <Button Style="{StaticResource RowButton}" Click="MenuButtonSwitch_Click" AutomationProperties.Name="Кнопка меню">
+                            <Grid>
+                                <local:Icon Style="{StaticResource RowIcon}" Kind="Ellipsis"/>
+                                <TextBlock Style="{StaticResource RowLabel}" Text="Кнопка меню"/>
+                                <local:Toggle x:Name="MenuButtonSwitch" Style="{StaticResource RowSwitch}"/>
                             </Grid>
                         </Button>
                         <Button Style="{StaticResource RowButton}" Click="Network_Click">
@@ -1003,7 +1065,7 @@
                                 <local:Toggle x:Name="AutostartSwitch" Style="{StaticResource RowSwitch}"/>
                             </Grid>
                         </Button>
-                        <Button Style="{StaticResource RowButton}" Click="UpdateRow_Click">
+                        <Button Style="{StaticResource RowButton}" Click="UpdateRow_Click" local:RowList.Edge="Bottom">
                             <Grid>
                                 <local:Icon Style="{StaticResource RowIcon}" Kind="Update"/>
                                 <TextBlock Style="{StaticResource RowLabel}" Text="Обновление"/>
@@ -1372,7 +1434,7 @@
                                     FontSize="13.5" FontWeight="SemiBold" Click="WeatherAction_Click"/>
                         </StackPanel>
                         <local:RowList Margin="0,10,0,0">
-                            <Button Style="{StaticResource RowButton}" Click="PlaceRow_Click">
+                            <Button Style="{StaticResource RowButton}" Click="PlaceRow_Click" local:RowList.Edge="Bottom">
                                 <Grid>
                                     <local:Icon Style="{StaticResource RowIcon}" Kind="Pin"/>
                                     <TextBlock Style="{StaticResource RowLabel}" Text="Место"/>

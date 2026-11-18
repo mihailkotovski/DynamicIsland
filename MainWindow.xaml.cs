@@ -37,8 +37,8 @@ public partial class MainWindow : Window
         [View.TimerSet] = new(300, 190, 38),
         [View.RecordBig] = new(340, 92, 40),
         [View.RecordSet] = new(320, 92, 40),
-        [View.Menu] = new(300, 368, 34),
-        [View.Settings] = new(320, 374, 34),
+        [View.Menu] = new(300, 384, 34),
+        [View.Settings] = new(320, 414, 34),
         [View.Look] = new(352, LookHeight, 34),
         [View.Shelf] = new(380, 136, 34),
         [View.Weather] = new(340, 190, 34),
@@ -401,6 +401,11 @@ public partial class MainWindow : Window
         View previous = _view;
         PillShape from = ShapeOf(previous);
         _view = target;
+        if (target == View.Menu)
+        {
+            _menuTimerPresetsOpen = false;
+            ApplyMenuTimerPresets(0);
+        }
         if (target == View.MediaBig) UpdatePlayerLyrics(true);
         else ShowLyricsPlaceholder(false);
         PillShape to = ShapeOf(target);
@@ -452,6 +457,7 @@ public partial class MainWindow : Window
         View.Media => PillShapes[view] with { Width = _compactMediaWidth },
         View.MediaBig when _playerHasLyricRoom => PillShapes[view] with { Height = PlayerHeight + PlayerLyricsHeight },
         View.RecordSet => PillShapes[view] with { Width = RecordSetView.Width },
+        View.Menu when _menuTimerPresetsOpen => PillShapes[view] with { Height = PillShapes[view].Height + MenuTimerPresets.Height },
         View.Update => PillShapes[view] with { Height = UpdatePage.Height },
         View.Weather => PillShapes[view] with { Height = WeatherView.Height },
         View.Place => PillShapes[view] with { Height = PlaceView.Height },

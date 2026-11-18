@@ -133,6 +133,8 @@ public partial class MainWindow
             Shadow.Clip = _glass.IsOn ? Around(Shadow.Data) : null;
         }
 
+        if (_view == View.Menu && (_menuTimerPresetsOpen || MenuTimerPresetClip.Height > 0))
+            ApplyMenuTimerPresets(Math.Clamp(h - PillShapes[View.Menu].Height, 0, MenuTimerPresets.Height));
         FitMediaViews(w, h);
         if (_morphing) FitViews(w, h);
         ApplyMotionBlur();

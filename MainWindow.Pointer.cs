@@ -171,13 +171,7 @@ public partial class MainWindow
         UpdateTargets();
     }
 
-    void Root_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        CancelGrab();
-        SelectPanel(_panel == Panel.Menu ? Panel.None : Panel.Menu);
-        UpdateSwitches(false);
-        UpdateView();
-    }
+    void Root_MouseRightButtonUp(object sender, MouseButtonEventArgs e) => ToggleMenu();
 
     void Root_MouseUp(object sender, MouseButtonEventArgs e)
     {
