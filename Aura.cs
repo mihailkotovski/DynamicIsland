@@ -13,14 +13,15 @@ public sealed class Aura : FrameworkElement
     const double BaseWidth = 0.26, WidthGain = 0.1;
     const double BaseHeight = 0.3, HeightGain = 0.4;
 
-    readonly record struct Patch(double Center, double DriftSpeed, double DriftPhase, int PaletteIndex);
+    readonly record struct Patch(double Center, double Vertical, double DriftSpeed, double DriftPhase, int PaletteIndex, double Weight);
 
     static readonly Patch[] Patches =
     [
-        new(0.40, 0.55, 0.0, 1),
-        new(0.63, 0.43, 2.1, 2),
-        new(0.15, 0.71, 4.0, 0),
-        new(0.86, 0.62, 5.3, 0),
+        new(0.40, 1.00, 0.55, 0.0, 1, 1.0),
+        new(0.63, 1.00, 0.43, 2.1, 2, 1.0),
+        new(0.15, 1.00, 0.71, 4.0, 0, 1.0),
+        new(0.86, 1.00, 0.62, 5.3, 0, 1.0),
+        new(0.16, 0.24, 0.37, 1.2, 0, 0.42),
     ];
 
     static readonly (double Offset, double Alpha)[] Falloff = [(0, 1), (0.25, 0.7), (0.5, 0.3), (0.75, 0.07), (1, 0)];
@@ -65,7 +66,7 @@ public sealed class Aura : FrameworkElement
             double next = _levels[p] + (target - _levels[p]) * (target > _levels[p] ? rise : fall);
             if (Math.Abs(next - _levels[p]) > StillBelow) moved = true;
             _levels[p] = next;
-            _brushes[p].Opacity = BaseOpacity + OpacityGain * next;
+            _brushes[p].Opacity = (BaseOpacity + OpacityGain * next) * Patches[p].Weight;
         }
 
         _time = t;
@@ -83,7 +84,8 @@ public sealed class Aura : FrameworkElement
             Patch patch = Patches[p];
             double level = _levels[p];
             double x = w * (patch.Center + DriftRange * Math.Sin(_time * patch.DriftSpeed + patch.DriftPhase));
-            dc.DrawEllipse(_brushes[p], null, new Point(x, h), w * (BaseWidth + WidthGain * level), h * (BaseHeight + HeightGain * level));
+            double y = h * patch.Vertical;
+            dc.DrawEllipse(_brushes[p], null, new Point(x, y), w * (BaseWidth + WidthGain * level), h * (BaseHeight + HeightGain * level));
         }
     }
 }

@@ -17,6 +17,7 @@ public partial class MainWindow
 
     readonly ObsService _obs = new();
     readonly SolidColorBrush _recordTint, _recordPauseDisc = new(Colors.White.WithAlpha(PauseDiscAlpha));
+    readonly RadialGradientBrush _recordGlowBrush = CreateRecordGlowBrush();
     bool _recordPauseShown;
     int _shownRecordSeconds = -1;
 
@@ -25,11 +26,26 @@ public partial class MainWindow
         RecordDot.Fill = BubbleRecordDot.Fill = RecordBigDot.Fill = _recordTint;
         RecordText.Foreground = BubbleRecordText.Foreground = MenuRecord.Foreground = _recordTint;
         RecordPauseDisc.Fill = _recordPauseDisc;
+        RecordGlow.Background = _recordGlowBrush;
         foreach (FrameworkElement icon in new FrameworkElement[] { RecordPauseIcon, RecordResumeIcon })
         {
             icon.RenderTransformOrigin = new Point(0.5, 0.5);
             icon.RenderTransform = new ScaleTransform(1, 1);
         }
+    }
+
+    static RadialGradientBrush CreateRecordGlowBrush()
+    {
+        var brush = new RadialGradientBrush
+        {
+            Center = new Point(0.14, 0.5),
+            GradientOrigin = new Point(0.14, 0.5),
+            RadiusX = 0.55,
+            RadiusY = 0.95,
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0x30, 0xFF, 0x45, 0x3A), 0));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0xFF, 0x45, 0x3A), 1));
+        return brush;
     }
 
     void OnObsChanged()
@@ -47,9 +63,13 @@ public partial class MainWindow
             _recordPauseShown = paused;
             SwapIcons(paused ? RecordPauseIcon : RecordResumeIcon, paused ? RecordResumeIcon : RecordPauseIcon, RecordBigView.IsVisible);
             _recordTint.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation((paused ? _orange : _red).Color, Ms(300)));
+            Color glowColor = (paused ? _orange : _red).Color;
+            _recordGlowBrush.GradientStops[0].BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(glowColor.WithAlpha(paused ? 0.14 : 0.22), Ms(300)));
+            _recordGlowBrush.GradientStops[1].BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(glowColor.WithAlpha(0), Ms(300)));
             Puddle.SetTint(RecordPauseButton, paused ? _orange.Color : Colors.White);
             Color disc = paused ? _orange.Color.WithAlpha(ResumeDiscAlpha) : Colors.White.WithAlpha(PauseDiscAlpha);
             _recordPauseDisc.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(disc, Ms(300)));
+            SyncRim();
         }
         RecordBigLabel.Text = paused ? "OBS · Пауза" : "OBS · Запись";
         RecordBigLabel.Foreground = paused ? _orange : Brushes.White;
@@ -125,6 +145,13 @@ public partial class MainWindow
         beat.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromPercent(1), new SineEase { EasingMode = EasingMode.EaseInOut }));
         foreach (UIElement dot in new UIElement[] { RecordDot, BubbleRecordDot, RecordBigDot })
             if (dot.IsVisible) dot.BeginAnimation(OpacityProperty, beat);
+        if (RecordBigView.IsVisible)
+        {
+            var glowBeat = new DoubleAnimationUsingKeyFrames { Duration = RecordBeat };
+            glowBeat.KeyFrames.Add(new EasingDoubleKeyFrame(0.55, KeyTime.FromPercent(0.45), new SineEase { EasingMode = EasingMode.EaseInOut }));
+            glowBeat.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromPercent(1), new SineEase { EasingMode = EasingMode.EaseInOut }));
+            RecordGlow.BeginAnimation(OpacityProperty, glowBeat);
+        }
     }
 
     void OnRecordingSaved(string path, TimeSpan length)

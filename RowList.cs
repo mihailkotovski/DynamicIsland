@@ -13,13 +13,15 @@ public sealed class RowList : StackPanel
     const double PressInsetX = 5, PressInsetY = 2;
     const double AppearSquish = 0.6;
     const double HiddenBelow = 0.05;
+    const double RimThickness = 0.8;
 
-    readonly RectangleGeometry _shape = new() { RadiusX = Radius, RadiusY = Radius };
+    static readonly Brush RimBrush = CreateRimBrush();
+
     readonly SolidColorBrush _fill = new(Colors.White) { Opacity = 0 };
-
     readonly Spring _top = new(0), _bottom = new(0);
     readonly Spring _shown = new(0), _squish = new(0);
     readonly FrameLoop _loop;
+    Rect _rect = Rect.Empty;
     bool _lit, _pressed;
 
     public RowList()
@@ -40,7 +42,19 @@ public sealed class RowList : StackPanel
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
-        dc.DrawGeometry(_fill, null, _shape);
+        double shown = Math.Clamp(_shown.Value, 0, 1);
+        if (shown < 0.005 || _rect.Width <= 1 || _rect.Height <= 1) return;
+
+        Geometry pill = Squircle.Of(_rect, Radius);
+        dc.DrawGeometry(_fill, null, pill);
+
+        Rect rimRect = Rect.Inflate(_rect, -RimThickness / 2, -RimThickness / 2);
+        if (rimRect.Width <= 0 || rimRect.Height <= 0) return;
+
+        dc.PushOpacity(shown);
+        var pen = new Pen(RimBrush, RimThickness);
+        dc.DrawGeometry(null, pen, Squircle.Of(rimRect, Math.Max(Radius - RimThickness / 2, 0)));
+        dc.Pop();
     }
 
     public void FollowPointer()
@@ -106,9 +120,20 @@ public sealed class RowList : StackPanel
     void ApplyHighlight()
     {
         double x = PressInsetX * _squish.Value, y = PressInsetY * _squish.Value;
-        _shape.Rect = new Rect(x, _top.Value + y,
+        _rect = new Rect(x, _top.Value + y,
             Math.Max(ActualWidth - x * 2, 0), Math.Max(_bottom.Value - _top.Value - y * 2, 0));
         _fill.Opacity = Math.Clamp(_shown.Value, 0, 1)
             * (HoverOpacity + (PressOpacity - HoverOpacity) * Math.Clamp(_squish.Value, 0, 1));
+        InvalidateVisual();
+    }
+
+    static Brush CreateRimBrush()
+    {
+        var brush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0x28, 0xFF, 0xFF, 0xFF), 0));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0x06, 0xFF, 0xFF, 0xFF), 0.5));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0x10, 0xFF, 0xFF, 0xFF), 1));
+        brush.Freeze();
+        return brush;
     }
 }

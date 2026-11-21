@@ -24,6 +24,7 @@ public partial class MainWindow
     readonly float[] _bands = new float[SpectrumService.Bands];
     readonly SpectrumLevels _backdropLevels = new();
     readonly SolidColorBrush _accentBrush = new(Colors.White);
+    readonly RadialGradientBrush _artGlowBrush = CreateArtGlowBrush();
     readonly Spring _coverLeft = new(0), _coverTop = new(0), _coverSize = new(FullCoverSize);
     readonly Spring _barsRight = new(0), _barsCenterY = new(0), _barsWidth = new(1), _barsHeight = new(1), _barsOpen = new(0);
     readonly Spring _coverScale = new(1);
@@ -31,7 +32,7 @@ public partial class MainWindow
     readonly Spring[] _spotSprings;
     readonly FrameLoop _eqLoop;
     ImageSource? _cover;
-    Color? _rimColor;
+    Color[]? _rimPalette;
     string _lastTitle = "";
     DateTime _lastPlayedAt = DateTime.MinValue;
     bool _shownPlaying;
@@ -66,6 +67,7 @@ public partial class MainWindow
             _cover = _media.Art;
             int heading = _clock.Elapsed.TotalSeconds - _skipAt < SkipMemorySeconds ? _skipDirection : 1;
             Art.Show(_cover, heading);
+            PlayerCover.SetArt(_cover, MediaBigView.IsVisible);
             SyncAccent();
         }
 
@@ -115,11 +117,44 @@ public partial class MainWindow
 
     void SyncRim()
     {
-        bool music = _media.HasTrack && (_cover != null || Settings.Accent != null) && (IsMediaActive || _view == View.MediaBig);
-        Color? tint = Settings.Rim && music ? AccentColor : null;
-        if (tint == _rimColor) return;
-        _rimColor = tint;
-        Body.Tint(tint, TintTime);
+        Color[]? palette = ContextualRimPalette();
+        if (SamePalette(_rimPalette, palette)) return;
+        _rimPalette = palette;
+        Body.Tint(palette, TintTime);
+    }
+
+    Color[]? ContextualRimPalette()
+    {
+        if (!Settings.Rim) return null;
+        return _view switch
+        {
+            View.Media or View.Toast or View.MediaBig when _media.HasTrack && (_cover != null || Settings.Accent != null)
+                => Settings.Accent is { } own ? CoverPalette.Around(own) : _media.Palette,
+            View.Timer or View.TimerBig or View.TimerSet => [_timerTint.Color],
+            View.Record or View.RecordBig => [_recordTint.Color],
+            View.Weather or View.Place when _weather.Now is { } report => [WeatherColor(report.Sky, report.Night)],
+            View.Charge => [_green.Color],
+            View.Focus when _doNotDisturb == true => [_indigo.Color],
+            _ => null,
+        };
+    }
+
+    static bool SamePalette(Color[]? a, Color[]? b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a == null || b == null || a.Length != b.Length) return false;
+        for (int i = 0; i < a.Length; i++)
+            if (a[i] != b[i]) return false;
+        return true;
+    }
+
+    static RadialGradientBrush CreateArtGlowBrush()
+    {
+        var brush = new RadialGradientBrush();
+        brush.GradientStops.Add(new GradientStop(Colors.White.WithAlpha(0.75), 0));
+        brush.GradientStops.Add(new GradientStop(Colors.White.WithAlpha(0.32), 0.52));
+        brush.GradientStops.Add(new GradientStop(Colors.White.WithAlpha(0), 1));
+        return brush;
     }
 
     void SyncCover()
@@ -137,9 +172,14 @@ public partial class MainWindow
     void SyncAccent(bool animate = true)
     {
         Duration time = animate ? TintTime : Ms(0);
-        _accentBrush.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(AccentColor, time));
+        Color accent = AccentColor;
+        _accentBrush.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(accent, time));
+        _artGlowBrush.GradientStops[0].BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(accent.WithAlpha(0.75), time));
+        _artGlowBrush.GradientStops[1].BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(accent.WithAlpha(0.32), time));
+        _artGlowBrush.GradientStops[2].BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(accent.WithAlpha(0), time));
         Color[] palette = Settings.Accent is { } own ? CoverPalette.Around(own) : _media.Palette;
         Glow.Tint(palette, time);
+        MiniWash.Tint(palette, time);
         PlayerMatrix.Tint(palette, time);
         PlayerLyricWait.Tint(palette, time);
         foreach (RadioButton tile in BackdropStrip.Children) ((BackdropPreview)tile.Content).Tint(palette);
@@ -148,6 +188,7 @@ public partial class MainWindow
     void SyncBackdrop()
     {
         Backdrop backdrop = Settings.Backdrop;
+        PlayerCover.SetVisible(backdrop == Backdrop.Cover);
         Glow.SetVisible(backdrop == Backdrop.Glow);
         PlayerMatrix.SetVisible(backdrop.HasFlag(Backdrop.Matrix));
         PlayerStars.SetVisible(backdrop.HasFlag(Backdrop.Stars));
@@ -173,8 +214,37 @@ public partial class MainWindow
         }
 
         bool moving = Eq.Tick(bands, level, playing, now, dt);
-        moving |= Settings.Backdrop == Backdrop.Glow ? Glow.Tick(Eq, now, dt) : AdvanceBackdrop(bands, playing, now, dt);
+        moving |= Settings.Backdrop switch
+        {
+            Backdrop.Glow => Glow.Tick(Eq, now, dt),
+            Backdrop.Cover => PlayerCover.Tick(Eq, playing, now, dt),
+            _ => AdvanceBackdrop(bands, playing, now, dt),
+        };
+        moving |= UpdateMiniProgress(playing, now, dt);
         return IsEqVisible && (playing || moving);
+    }
+
+    bool UpdateMiniProgress(bool playing = false, double now = 0, double dt = 0.016)
+    {
+        CompactProgress style = Settings.CompactProgress;
+        bool known = _view == View.Media && _media.HasTrack && _media.Duration.TotalSeconds >= 1;
+        double progress = known ? Math.Clamp(_media.Progress, 0, 1) : 0;
+
+        bool wash = known && style == CompactProgress.Wash;
+        bool washMoving = MiniWash.Tick(Eq, progress, wash, playing, now, dt);
+
+        bool ring = known && style == CompactProgress.Ring;
+        if (ring) ArtRing.Progress = progress;
+        UpdateArtRingOpacity(Math.Max(_coverSize.Value, 1));
+        return washMoving;
+    }
+
+    void UpdateArtRingOpacity(double artSize)
+    {
+        bool ring = Settings.CompactProgress == CompactProgress.Ring && _view == View.Media
+            && _media.HasTrack && _media.Duration.TotalSeconds >= 1;
+        double compact = Math.Clamp(1 - (artSize - 22) / 14, 0, 1);
+        ArtRing.Opacity = ring ? compact : 0;
     }
 
     bool AdvanceBackdrop(float[]? bands, bool playing, double now, double dt)
@@ -191,6 +261,7 @@ public partial class MainWindow
         if (_view == View.Media)
         {
             MediaView.Width = w;
+            MediaView.Height = Math.Max(h, PillShapes[View.Media].Height);
             CentreLyrics();
         }
         if (_view != View.MediaBig) return;
@@ -213,6 +284,16 @@ public partial class MainWindow
         ArtSize.ScaleX = ArtSize.ScaleY = Math.Max(art * _coverScale.Value, 1) / FullCoverSize;
         ArtMove.X = pill.Left + _coverLeft.Value + _coverSnapX.Value + back;
         ArtMove.Y = _coverTop.Value + _coverSnapY.Value + back;
+
+        ArtRingMove.X = pill.Left + _coverLeft.Value + _coverSnapX.Value + (art - ArtRing.Width) / 2;
+        ArtRingMove.Y = _coverTop.Value + _coverSnapY.Value + (art - ArtRing.Height) / 2;
+        UpdateArtRingOpacity(art);
+
+        double glowAlpha = Math.Clamp(_barsOpen.Value, 0, 1) * 0.34 * (_cover != null ? _coverScale.Value : 0);
+        ArtGlow.Opacity = glowAlpha;
+        ArtGlowScale.ScaleX = ArtGlowScale.ScaleY = Math.Max(_coverScale.Value, 0.5);
+        ArtGlowMove.X = pill.Left + _coverLeft.Value + (art - ArtGlow.Width) / 2;
+        ArtGlowMove.Y = _coverTop.Value + (art - ArtGlow.Height) / 2 + 4;
 
         double eqW = Math.Max(_barsWidth.Value, 1), eqH = Math.Max(_barsHeight.Value, 1);
         Eq.Width = eqW;

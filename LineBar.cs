@@ -39,6 +39,7 @@ public sealed class LineBar : FrameworkElement
     readonly record struct Ripple(double At, double From, bool Swelling);
 
     readonly Shades _shades = new();
+    readonly RadialGradientBrush _bloom = new(Colors.White, Colors.Transparent);
     readonly List<Column> _columns = [];
     readonly List<Ripple> _ripples = [];
     readonly Spring _focus = new(0, 300, 30), _tipShown = new(0, 300, 30), _tipX = new(0, 420, 32);
@@ -270,6 +271,14 @@ public sealed class LineBar : FrameworkElement
         dc.PushClip(reach);
         dc.DrawGeometry(Brushes.White, null, shape);
         dc.Pop();
+
+        if (_pointed && fill > 2)
+        {
+            double thick = ThicknessOf(_columns[ColumnAt(fill)]);
+            _bloom.GradientStops[0].Color = Colors.White.WithAlpha(0.32);
+            _bloom.GradientStops[1].Color = Colors.Transparent;
+            dc.DrawEllipse(_bloom, null, new Point(fill - radius * 0.4, middle), thick * 1.1, thick * 1.1);
+        }
     }
 
     Geometry SolidShape(double width, double middle)
@@ -329,9 +338,24 @@ public sealed class LineBar : FrameworkElement
 
             dc.DrawRoundedRectangle(_shades.Of(accent, AheadOpacity * dim), null, segment, radius, radius);
             if (fill <= left) continue;
-            dc.PushClip(new RectangleGeometry(new Rect(0, 0, fill, ActualHeight)));
+            double reach = Math.Min(fill, right);
+            var segClip = new RectangleGeometry(segment, radius, radius);
+            var fillCap = new CombinedGeometry(GeometryCombineMode.Union,
+                new RectangleGeometry(new Rect(0, 0, Math.Max(0, reach - radius), ActualHeight)),
+                new EllipseGeometry(new Point(reach - radius, middle), radius, radius));
+            dc.PushClip(segClip);
+            dc.PushClip(fillCap);
             dc.DrawRoundedRectangle(_shades.Of(accent, dim), null, segment, radius, radius);
             dc.Pop();
+            dc.Pop();
+
+            if (reach > left + 1)
+            {
+                double glowRadius = thick * 1.15;
+                _bloom.GradientStops[0].Color = accent.WithAlpha(0.38 * dim);
+                _bloom.GradientStops[1].Color = accent.WithAlpha(0);
+                dc.DrawEllipse(_bloom, null, new Point(reach - radius * 0.4, middle), glowRadius, glowRadius);
+            }
         }
 
         RenderTip(dc, middle);

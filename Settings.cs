@@ -11,6 +11,7 @@ enum Backdrop
     Matrix = 1,
     Stars = 2,
     MatrixAndStars = Matrix | Stars,
+    Cover = 4,
 }
 
 enum LyricChange
@@ -53,6 +54,13 @@ enum SeekHover
     Wave,
 }
 
+enum CompactProgress
+{
+    Off,
+    Ring,
+    Wash,
+}
+
 static class Settings
 {
     const string Key = @"Software\DynamicIsland";
@@ -70,11 +78,12 @@ static class Settings
     static bool _dots = ReadSwitch(nameof(Dots), false);
     static bool _lineBar = ReadSwitch(nameof(LineBar));
     static bool _glass = ReadSwitch(nameof(Glass), false);
-    static Backdrop _backdrop = (Backdrop)Math.Clamp(Read(nameof(Backdrop), 0), 0, (int)Backdrop.MatrixAndStars);
+    static Backdrop _backdrop = (Backdrop)Math.Clamp(Read(nameof(Backdrop), 0), 0, (int)Backdrop.Cover);
     static LyricChange _lyricChange = (LyricChange)Math.Clamp(Read(nameof(LyricChange), (int)LyricChange.Wave), 0, (int)LyricChange.Drum);
     static LyricSource _lyricSources = Known((LyricSource)Read(nameof(LyricSources), (int)LyricSource.Usual));
     static Hover _hover = (Hover)Math.Clamp(Read(nameof(Hover), 0), 0, (int)Hover.Flow);
     static SeekHover _seekHover = (SeekHover)Math.Clamp(Read(nameof(SeekHover), 0), 0, (int)SeekHover.Wave);
+    static CompactProgress _compactProgress = (CompactProgress)Math.Clamp(Read(nameof(CompactProgress), (int)CompactProgress.Ring), 0, (int)CompactProgress.Wash);
     static int _scale = Math.Clamp(Read(nameof(Scale), DefaultScale), MinScale, MaxScale);
     static int _gap = Math.Clamp(Read(nameof(Gap), DefaultGap), 0, MaxGap);
     static int _accent = Read(nameof(Accent), 0);
@@ -125,6 +134,12 @@ static class Settings
     {
         get => _seekHover;
         set => Write(nameof(SeekHover), (int)(_seekHover = value));
+    }
+
+    public static CompactProgress CompactProgress
+    {
+        get => _compactProgress;
+        set => Write(nameof(CompactProgress), (int)(_compactProgress = value));
     }
 
     public static bool Lyrics

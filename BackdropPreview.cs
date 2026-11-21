@@ -74,9 +74,22 @@ sealed class BackdropPreview : FrameworkElement
         dc.PushClip(new RectangleGeometry(new Rect(0, 0, w, h), Rounding, Rounding));
         dc.DrawRectangle(Brushes.Black, null, new Rect(0, 0, w, h));
         if (Kind == Backdrop.Glow) DrawGlow(dc, w, h);
+        if (Kind == Backdrop.Cover) DrawCover(dc, w, h);
         if (Kind.HasFlag(Backdrop.Stars)) DrawStars(dc, w, h - (Kind.HasFlag(Backdrop.Matrix) ? SkyOverMatrix : 0));
         if (Kind.HasFlag(Backdrop.Matrix)) DrawMatrix(dc, w, h);
         dc.Pop();
+    }
+
+    void DrawCover(DrawingContext dc, double w, double h)
+    {
+        for (int patch = 0; patch < _glows.Length; patch++)
+        {
+            double angle = _time * (0.45 + 0.15 * patch) + patch * 2.1;
+            double cx = w * (0.5 + 0.28 * Math.Cos(angle));
+            double cy = h * (0.5 + 0.26 * Math.Sin(angle * 0.85));
+            _glows[patch].Opacity = 0.55;
+            dc.DrawEllipse(_glows[patch], null, new Point(cx, cy), w * 0.52, h * 0.62);
+        }
     }
 
     void DrawGlow(DrawingContext dc, double w, double h)

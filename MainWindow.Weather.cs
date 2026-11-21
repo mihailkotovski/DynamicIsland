@@ -47,19 +47,44 @@ public partial class MainWindow
         InfoWeatherRow.SetVisible(now != null);
         WeatherNow.SetVisible(now != null);
         WeatherHours.SetVisible(now != null);
+        WeatherSpark.SetVisible(now != null && now.Hours.Length >= 2);
+        WeatherGlow.SetVisible(now != null);
         WeatherNote.SetVisible(now == null);
         MenuWeather.Text = now != null ? DescribeDegrees(now.Degrees) : "";
         PlaceText.Text = Settings.Place?.Name ?? "Автоматически";
         if (now != null) ShowWeather(now);
         else ShowWeatherNote();
+        SyncRim();
         FitWeatherPage();
     }
+
+    static Color WeatherColor(Sky sky, bool night) => sky switch
+    {
+        Sky.Clear => night ? Color.FromRgb(0x7D, 0x7A, 0xFF) : Color.FromRgb(0xFF, 0x9F, 0x0A),
+        Sky.Cloudy => night ? Color.FromRgb(0x8E, 0x98, 0xFF) : Color.FromRgb(0xFF, 0xB3, 0x40),
+        Sky.Rain or Sky.Snow => Color.FromRgb(0x64, 0xD2, 0xFF),
+        Sky.Storm => Color.FromRgb(0xFF, 0xD6, 0x0A),
+        _ => Color.FromRgb(0xB8, 0xC6, 0xDA),
+    };
 
     void ShowWeather(WeatherService.Report now)
     {
         Glyph glyph = GlyphOf(now.Sky, now.Night);
+        Color tint = WeatherColor(now.Sky, now.Night);
+        Brush tintBrush = Shades.Frozen(new SolidColorBrush(tint));
         InfoWeatherIcon.Kind = MenuWeatherIcon.Kind = WeatherIcon.Kind = glyph;
-        WeatherIcon.Fill = glyph == Glyph.Sun ? _orange : glyph == Glyph.Moon ? _indigo : Brushes.White;
+        WeatherIcon.Fill = InfoWeatherIcon.Fill = tintBrush;
+
+        var glow = new RadialGradientBrush(tint.WithAlpha(0.24), tint.WithAlpha(0))
+        {
+            Center = new Point(0.22, 0.15),
+            GradientOrigin = new Point(0.22, 0.15),
+            RadiusX = 0.72,
+            RadiusY = 0.65,
+        };
+        glow.Freeze();
+        WeatherGlow.Background = glow;
+
         InfoWeather.Text = WeatherDegrees.Text = DescribeDegrees(now.Degrees);
         WeatherSky.Text = now.Sky switch
         {
@@ -84,8 +109,10 @@ public partial class MainWindow
             WeatherService.Hour hour = now.Hours[i];
             at.Text = hour.At.ToString("00") + ":00";
             sky.Kind = GlyphOf(hour.Sky, hour.Night);
+            sky.Fill = Shades.Frozen(new SolidColorBrush(WeatherColor(hour.Sky, hour.Night)));
             degrees.Text = DescribeDegrees(hour.Degrees);
         }
+        WeatherSpark.SetData([.. now.Hours.Select(h => h.Degrees)], tint);
     }
 
     void ShowWeatherNote()

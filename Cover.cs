@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using static DynamicIsland.Motion;
 
 namespace DynamicIsland;
@@ -9,18 +10,38 @@ namespace DynamicIsland;
 public sealed class Cover : Grid
 {
     const double FirstScale = 0.88;
+    const double RimThickness = 1;
     static readonly Duration SlideTime = Ms(460);
+    static readonly Brush RimBrush = CreateRimBrush();
 
+    readonly Grid _layers = new();
+    readonly Path _rim = new()
+    {
+        Stroke = RimBrush,
+        StrokeThickness = RimThickness,
+        IsHitTestVisible = false,
+    };
     Border? _shown;
 
-    public Cover() => RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+    public Cover()
+    {
+        RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+        Children.Add(_layers);
+        Children.Add(_rim);
+    }
 
     public double Radius { get; set; }
 
     protected override void OnRenderSizeChanged(SizeChangedInfo info)
     {
         base.OnRenderSizeChanged(info);
-        Clip = Squircle.Of(new Rect(info.NewSize), Radius);
+        var box = new Rect(info.NewSize);
+        Clip = Squircle.Of(box, Radius);
+        Rect inset = box;
+        inset.Inflate(-RimThickness / 2, -RimThickness / 2);
+        _rim.Data = inset.Width > 0 && inset.Height > 0
+            ? Squircle.Of(inset, Math.Max(Radius - RimThickness / 2, 0))
+            : Geometry.Empty;
     }
 
     public void Show(ImageSource? art, int direction)
@@ -29,8 +50,8 @@ public sealed class Cover : Grid
         Border? next = _shown = art != null ? CreateLayer(art) : null;
         if (!IsVisible || ActualWidth <= 0)
         {
-            Children.Clear();
-            if (next != null) Children.Add(next);
+            _layers.Children.Clear();
+            if (next != null) _layers.Children.Add(next);
             return;
         }
 
@@ -39,13 +60,13 @@ public sealed class Cover : Grid
         if (old != null)
         {
             var leave = new DoubleAnimation(-shift, SlideTime) { EasingFunction = ease };
-            leave.Completed += (_, _) => Children.Remove(old);
+            leave.Completed += (_, _) => _layers.Children.Remove(old);
             Offset(old).BeginAnimation(TranslateTransform.XProperty, leave);
             if (next == null) old.BeginAnimation(OpacityProperty, new DoubleAnimation(0, Ms(240)));
         }
         if (next == null) return;
 
-        Children.Add(next);
+        _layers.Children.Add(next);
         if (old != null)
         {
             Offset(next).BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(shift, 0, SlideTime) { EasingFunction = ease });
@@ -54,6 +75,16 @@ public sealed class Cover : Grid
 
         Scale(next).AnimateScale(new DoubleAnimation(FirstScale, 1, SlideTime) { EasingFunction = ease });
         next.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, Ms(300)));
+    }
+
+    static Brush CreateRimBrush()
+    {
+        var brush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0x3A, 0xFF, 0xFF, 0xFF), 0));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF), 0.5));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF), 1));
+        brush.Freeze();
+        return brush;
     }
 
     static Border CreateLayer(ImageSource art) => new()

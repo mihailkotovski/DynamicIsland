@@ -29,11 +29,33 @@ public partial class MainWindow
     Guid _headsetId;
     bool? _doNotDisturb;
 
+    int _clockGlowHour = -1;
+
     void UpdateClock()
     {
         DateTime now = DateTime.Now;
         IdleClock.Text = BigClock.Text = now.ToString("HH:mm");
         BigDate.Text = now.ToString("dddd, d MMMM", Russian);
+        if (now.Hour != _clockGlowHour)
+        {
+            _clockGlowHour = now.Hour;
+            Color tint = now.Hour switch
+            {
+                >= 6 and < 11 => Color.FromRgb(0xFF, 0xB3, 0x40),
+                >= 11 and < 17 => Color.FromRgb(0x64, 0xD2, 0xFF),
+                >= 17 and < 22 => Color.FromRgb(0xFF, 0x9F, 0x0A),
+                _ => Color.FromRgb(0x7D, 0x7A, 0xFF),
+            };
+            var glow = new RadialGradientBrush(tint, tint.WithAlpha(0))
+            {
+                Center = new Point(0.18, 0.25),
+                GradientOrigin = new Point(0.18, 0.25),
+                RadiusX = 0.65,
+                RadiusY = 0.9,
+            };
+            glow.Freeze();
+            ClockGlow.Background = glow;
+        }
     }
 
     void CheckFullscreen()
@@ -120,7 +142,8 @@ public partial class MainWindow
         if (!hasBattery) return;
 
         InfoBat.Text = percent + "%";
-        InfoBat.Foreground = plugged ? _green : Brushes.White;
+        InfoBat.Foreground = plugged ? _green : percent <= HeadsetLowPercent ? _red : Brushes.White;
+        InfoBatIcon.Fill = plugged ? _green : percent <= HeadsetLowPercent ? _red : _dim;
 
         if (_powerKnown && plugged && !_lastPlugged) ShowCharging(percent);
         _powerKnown = true;
@@ -160,6 +183,7 @@ public partial class MainWindow
         InfoHeadsetIcon.Kind = PlayerHeadsetIcon.Kind = icon;
         InfoHeadset.Text = PlayerHeadsetText.Text = level + "%";
         InfoHeadset.Foreground = low ? _red : Brushes.White;
+        InfoHeadsetIcon.Fill = low ? _red : _dim;
         PlayerHeadsetIcon.Fill = PlayerHeadsetText.Foreground = low ? _red : _dim;
         if (output == null) return;
 

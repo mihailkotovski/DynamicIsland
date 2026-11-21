@@ -37,8 +37,8 @@ public partial class MainWindow : Window
         [View.TimerSet] = new(300, 190, 38),
         [View.RecordBig] = new(340, 92, 40),
         [View.RecordSet] = new(320, 92, 40),
-        [View.Menu] = new(300, 368, 34),
-        [View.Settings] = new(320, 374, 34),
+        [View.Menu] = new(300, 390, 34),
+        [View.Settings] = new(320, 396, 34),
         [View.Look] = new(352, LookHeight, 34),
         [View.Shelf] = new(380, 136, 34),
         [View.Weather] = new(340, 190, 34),
@@ -205,12 +205,15 @@ public partial class MainWindow : Window
 
         Shared.RenderTransform = CreateViewTransforms();
         ArtSpot.Clip = Squircle.Of(new Rect(0, 0, FullCoverSize, FullCoverSize), CoverRadius);
+        ArtGlow.Fill = _artGlowBrush;
+        ArtRing.Accent = _accentBrush;
         LyricBox.CacheMode = _lyricCache;
         Eq.Fill = _accentBrush;
         Eq.Dots = Settings.Dots;
         SeekLines.Accent = _accentBrush;
         PlayerMatrix.Rounding = PillShapes[View.MediaBig].Radius;
         SyncBackdrop();
+        SyncTimerPresets();
         foreach (FrameworkElement icon in new FrameworkElement[] { PlayIcon, PauseIcon, TimerPlayIcon, TimerPauseIcon })
         {
             icon.RenderTransformOrigin = new Point(0.5, 0.5);

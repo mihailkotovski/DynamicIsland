@@ -24,7 +24,8 @@ public partial class MainWindow
 
     static bool IsHidden(FrameworkElement view) => view.Visibility != Visibility.Visible || view.Opacity < BarelyVisible;
 
-    static UIElementCollection? RowsOf(FrameworkElement view) => view is Grid { Children: [StackPanel list] } ? list.Children : null;
+    static UIElementCollection? RowsOf(FrameworkElement view) =>
+        view is Grid grid ? grid.Children.OfType<StackPanel>().FirstOrDefault()?.Children : null;
 
     bool IsCurrent(FrameworkElement view) => view == Shared ? MediaSpots.ContainsKey(_view) : _views[_view] == view;
 

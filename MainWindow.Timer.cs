@@ -98,6 +98,7 @@ public partial class MainWindow
         if (on == _urgent) return;
         _urgent = on;
         _timerTint.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation((on ? _red : _orange).Color, Ms(300)));
+        SyncRim();
     }
 
     void PulseTimer()
@@ -152,6 +153,21 @@ public partial class MainWindow
     {
         _setupMinutes = Math.Clamp(minutes, 1, MaxMinutes);
         SetupText.Text = _setupMinutes + ":00";
+        SyncTimerPresets();
+    }
+
+    void SyncTimerPresets()
+    {
+        string active = _setupMinutes.ToString();
+        Brush activeBack = Shades.Frozen(new SolidColorBrush(_orange.Color.WithAlpha(0.24)));
+        foreach (Button chip in TimerPresets.Children.OfType<Button>())
+        {
+            bool picked = chip.Tag as string == active;
+            if (picked) chip.Background = activeBack;
+            else chip.ClearValue(BackgroundProperty);
+            chip.Foreground = picked ? _orange : Brushes.White;
+            chip.FontWeight = picked ? FontWeights.SemiBold : FontWeights.Normal;
+        }
     }
 
     void TimerRow_Click(object sender, RoutedEventArgs e) => ShowPanel(_countdown.IsActive ? Panel.Timer : Panel.TimerSet);

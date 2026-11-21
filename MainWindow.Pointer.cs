@@ -36,6 +36,7 @@ public partial class MainWindow
     void Island_MouseLeave(object sender, MouseEventArgs e)
     {
         _hovered = _pressed = false;
+        Body.SetPointer(null);
         StirLyrics();
         UpdateTargets();
         if (_panel != Panel.None) _collapseTimeout.Start(CollapseDelay);
@@ -57,6 +58,7 @@ public partial class MainWindow
     void Root_MouseMove(object sender, MouseEventArgs e)
     {
         StirLyrics();
+        Body.SetPointer(_hovered && _panel != Panel.None ? e.GetPosition(Body) : null);
         if (_grab == Grab.None) return;
         Point at = e.GetPosition(this);
         double now = _clock.Elapsed.TotalSeconds, dt = now - _pointerAt;

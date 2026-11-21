@@ -46,8 +46,8 @@ public sealed class Digits : ContentControl
         return order == 0 ? null : order > 0;
     }
 
-    double TravelDistance => Math.Round(FontSize * 0.5);
-    double BlurRadius => Math.Clamp(FontSize * 0.4, 4, 12);
+    double TravelDistance => Math.Round(FontSize * 0.48);
+    double BlurRadius => Math.Clamp(FontSize * 0.2, 1.5, 9);
 
     void Render(string text, bool animate)
     {

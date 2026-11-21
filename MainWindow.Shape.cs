@@ -124,14 +124,7 @@ public partial class MainWindow
         Pill.Width = w;
         Pill.Height = h;
         Pill.CornerRadius = new CornerRadius(r);
-        Shadow.Opacity = Math.Clamp((h - CompactMaxHeight) / ShadowFadeHeight, 0, 1);
-        if (pill != _clipRect || r != _clipRadius)
-        {
-            _clipRect = pill;
-            _clipRadius = r;
-            Host.Clip = Shared.Clip = Shadow.Data = Squircle.Of(pill, r);
-            Shadow.Clip = _glass.IsOn ? Around(Shadow.Data) : null;
-        }
+        Shadow.Opacity = 0.34 + 0.66 * Math.Clamp((h - CompactMaxHeight) / ShadowFadeHeight, 0, 1);
 
         FitMediaViews(w, h);
         if (_morphing) FitViews(w, h);
@@ -149,7 +142,50 @@ public partial class MainWindow
 
         PlaceCoverAndBars(pill);
         PlaceBubble(pill, r, scale);
+        PlaceGestureHints(pill);
+
+        Geometry? outer = Body.OuterGeometry;
+        if (pill != _clipRect || r != _clipRadius || !ReferenceEquals(Shadow.Data, outer))
+        {
+            _clipRect = pill;
+            _clipRadius = r;
+            Geometry pillOutline = Squircle.Of(pill, r);
+            Host.Clip = Shared.Clip = GestureHints.Clip = pillOutline;
+            Shadow.Data = outer ?? pillOutline;
+            Shadow.Clip = _glass.IsOn ? Around(Shadow.Data) : null;
+        }
         CutGlass(dpi);
+    }
+
+    void PlaceGestureHints(Rect pill)
+    {
+        bool leaning = _grab == Grab.Lean && IsMediaActive && Math.Abs(_leanDrag) > DragThreshold;
+        double leanProgress = leaning ? Math.Clamp(Math.Abs(_leanDrag) / LeanToSkip, 0, 1) : 0;
+        bool leanReady = leaning && Math.Abs(_leanDrag) >= LeanToSkip;
+        double hintScale = leanReady ? 1.15 : 0.8 + 0.25 * leanProgress;
+
+        double leftAlpha = leaning && _leanDrag > 0 ? leanProgress : 0;
+        LeanLeftHint.Opacity = leftAlpha;
+        LeanLeftScale.ScaleX = LeanLeftScale.ScaleY = hintScale;
+        LeanLeftMove.X = pill.Left + 6 + 4 * leanProgress;
+        LeanLeftMove.Y = (pill.Height - LeanLeftHint.Height) / 2;
+        LeanLeftIcon.Fill = leanReady && _leanDrag > 0 ? _accentBrush : Brushes.White;
+
+        double rightAlpha = leaning && _leanDrag < 0 ? leanProgress : 0;
+        LeanRightHint.Opacity = rightAlpha;
+        LeanRightScale.ScaleX = LeanRightScale.ScaleY = hintScale;
+        LeanRightMove.X = pill.Right - LeanRightHint.Width - 6 - 4 * leanProgress;
+        LeanRightMove.Y = (pill.Height - LeanRightHint.Height) / 2;
+        LeanRightIcon.Fill = leanReady && _leanDrag < 0 ? _accentBrush : Brushes.White;
+
+        bool pulling = _grab == Grab.Pull && _pull > DragThreshold;
+        double pullProgress = pulling ? Math.Clamp(_pull / PullToOpen, 0, 1) : 0;
+        bool pullReady = pulling && _pull >= PullToOpen;
+        PullHandle.Opacity = pulling ? 0.22 + (pullReady ? 0.68 : 0.35 * pullProgress) : 0;
+        PullHandleScale.ScaleX = pullReady ? 1.32 : 0.85 + 0.25 * pullProgress;
+        PullHandleScale.ScaleY = pullReady ? 1.15 : 1;
+        PullHandleMove.X = pill.Left + (pill.Width - PullHandle.Width) / 2;
+        PullHandleMove.Y = pill.Bottom - 7;
     }
 
     void SharpenLyricCache(double dpi)
@@ -189,7 +225,7 @@ public partial class MainWindow
         if (!_glass.IsOn || Body.TransformToAncestor(this) is not Transform place) return;
         Matrix toPixels = place.Value;
         toPixels.Scale(dpi, dpi);
-        _glass.Cut(Body.PillInside, Body.BubbleInside, toPixels);
+        _glass.Cut(Body.InnerGeometry, Body.BevelRingGeometry, Body.PillInside, Body.BubbleInside, toPixels);
     }
 
     void SyncGlass(bool animate)
