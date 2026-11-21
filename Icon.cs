@@ -9,7 +9,7 @@ public enum Glyph
     Mute, Quiet, Mid, Loud, Headphones, Speaker, Vpn, Offline, Wifi, Wired, Bell, Note, Battery, Minus, Plus, Chevron, Back,
     Timer, Gear, Lines, Quote, Sparkle, Rim, Expand, Windows, Power, Look, Size, Gap, Drop, Moon, Tray, Cross, Bolt, VpnOff, Bars, Update,
     Segments, Stars, Pointer, Record, Folder, Bulge, Sun, Cloud, CloudSun, CloudMoon, Rain, Snow, Storm, Fog, Qr, Pin, Location, Search,
-    Check, PointerText, Parting, Ellipsis,
+    Check, PointerText, Parting,
 }
 
 public sealed class Icon : FrameworkElement
@@ -115,7 +115,6 @@ public sealed class Icon : FrameworkElement
         [Glyph.Location] = new("location.fill", 0x1002D2),
         [Glyph.Search] = new("magnifyingglass", 0x1002AB),
         [Glyph.Check] = new("checkmark", 0x100185),
-        [Glyph.Ellipsis] = new("ellipsis", 0x100360),
     };
 
     static readonly Dictionary<Glyph, Geometry> Outlines = [];

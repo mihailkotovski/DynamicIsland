@@ -63,7 +63,6 @@ static class Settings
     static bool _network = ReadSwitch(nameof(Network)), _hideFullscreen = ReadSwitch(nameof(HideFullscreen));
     static bool _rim = ReadSwitch(nameof(Rim)), _appVolume = ReadSwitch(nameof(AppVolume));
     static bool _weather = ReadSwitch(nameof(Weather));
-    static bool _showMenuButton = ReadSwitch(nameof(ShowMenuButton));
     static bool _pointerLyric = ReadSwitch(nameof(PointerLyric), false);
     static bool _lyricParting = ReadSwitch(nameof(LyricParting));
     static PointerLyricShape _pointerLyricShape = (PointerLyricShape)Math.Clamp(Read(nameof(PointerLyricShape), 0), 0, (int)PointerLyricShape.Line);
@@ -168,12 +167,6 @@ static class Settings
     {
         get => _appVolume;
         set => Write(nameof(AppVolume), _appVolume = value);
-    }
-
-    public static bool ShowMenuButton
-    {
-        get => _showMenuButton;
-        set => Write(nameof(ShowMenuButton), _showMenuButton = value);
     }
 
     public static bool Network
