@@ -24,7 +24,7 @@ public partial class MainWindow
     Point _grabStart, _pointerLast;
     double _pointerAt;
     Vector _pointerSpeed;
-    double _pull, _leanDrag;
+    double _pull, _pullDriftX, _leanDrag;
 
     void Island_MouseEnter(object sender, MouseEventArgs e)
     {
@@ -76,7 +76,11 @@ public partial class MainWindow
             _grab = Math.Abs(moved.X) > Math.Abs(moved.Y) ? Grab.Lean : Grab.Pull;
             if (_grab == Grab.Pull) _morphing = true;
         }
-        if (_grab == Grab.Pull) _pull = Math.Max(moved.Y, 0);
+        if (_grab == Grab.Pull)
+        {
+            _pull = Math.Max(moved.Y, 0);
+            _pullDriftX = moved.X;
+        }
         else _leanDrag = moved.X;
         UpdateTargets();
     }
@@ -99,6 +103,7 @@ public partial class MainWindow
             case Grab.Pull when DragDirection(pulled, pace.Y, PullToOpen) <= 0:
                 break;
             case Grab.Pull:
+                _pullHandleOpened = true;
                 ToggleOpen();
                 ThrowOpen(pace.Y);
                 break;
@@ -154,7 +159,7 @@ public partial class MainWindow
         if (_grab == Grab.None) return;
         bool dragged = _grab != Grab.Held;
         _grab = Grab.None;
-        _pull = _leanDrag = 0;
+        _pull = _pullDriftX = _leanDrag = 0;
         if (dragged) TuneDragSprings(false);
         Island.ReleaseMouseCapture();
     }
@@ -162,6 +167,7 @@ public partial class MainWindow
     void CancelGrab()
     {
         if (_grab == Grab.None) return;
+        _pullHandleOpened = false;
         ReleaseGrab();
         _pressed = false;
     }

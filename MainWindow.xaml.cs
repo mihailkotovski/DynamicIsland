@@ -154,7 +154,8 @@ public partial class MainWindow : Window
         _springs =
         [
             _width, _height, _radius, _scale, _offsetY, _userScale, _topGap, _bubbleSplit, _bubbleScale, _bubbleRecord, _bubbleTimer, _bubbleShelf, _shelfBubbleWidth,
-            _shelfScroll, _lookScroll, _updateNotesScroll, _volumeOvershoot, _leanX, _coverScale, _coverSnapX, _coverSnapY, _lyricSnapX, _lyricSnapY, .. _spotSprings,
+            _shelfScroll, _lookScroll, _updateNotesScroll, _volumeOvershoot, _leanX, _coverScale, _coverSnapX, _coverSnapY, _lyricSnapX, _lyricSnapY,
+            _pullHandleAlpha, _pullHandleWidth, _pullHandleHeight, _pullHandleOffsetY, _pullHandleDriftX, .. _spotSprings,
         ];
         _timerTint = new SolidColorBrush(_orange.Color);
         _recordTint = new SolidColorBrush(_red.Color);

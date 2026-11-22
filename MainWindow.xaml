@@ -1549,12 +1549,9 @@
                     </Border.RenderTransform>
                     <local:Icon x:Name="LeanRightIcon" Kind="Chevron" Width="11" Height="11" Fill="White"/>
                 </Border>
-                <Border x:Name="PullHandle" Width="28" Height="3" CornerRadius="1.5" Background="White" Opacity="0" RenderTransformOrigin="0.5,0.5">
+                <Border x:Name="PullHandle" Width="28" Height="3" CornerRadius="1.5" Background="White" Opacity="0" Visibility="Collapsed" UseLayoutRounding="False">
                     <Border.RenderTransform>
-                        <TransformGroup>
-                            <ScaleTransform x:Name="PullHandleScale"/>
-                            <TranslateTransform x:Name="PullHandleMove"/>
-                        </TransformGroup>
+                        <TranslateTransform x:Name="PullHandleMove"/>
                     </Border.RenderTransform>
                 </Border>
             </Canvas>
