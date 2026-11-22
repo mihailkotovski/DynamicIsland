@@ -10,14 +10,17 @@ public partial class MainWindow
 {
     const double SeekTrackWidth = 260;
     const double SeekHeight = 6, SeekDragHeight = 12, MinSeekHeight = 2;
+    const double SeekSquashSpeed = 950, SeekMaxSquash = 0.3;
+    const double SeekMaxOvershoot = 11, SeekOvershootResist = 42, SeekOvershootSquash = 0.24;
     const double SeekSettledFraction = 0.02;
     const double SeekHoldSeconds = 1;
     const int NoSeconds = -1;
     const string NoTime = "–:––";
 
-    readonly Spring _seekFill = new(0, 170, 26), _seekHeight = new(SeekHeight, 420, 26);
+    readonly Spring _seekFill = new(0, 170, 26), _seekHeight = new(SeekHeight, 420, 21);
+    readonly Spring _seekSquash = new(0, 320, 22), _seekOvershoot = new(0, 380, 17);
     readonly FrameLoop _seekLoop;
-    bool _scrubbing;
+    bool _scrubbing, _overshootRight;
     double _scrubFraction, _scrubHeldUntil;
     (int At, int Left) _seekLabel = (NoSeconds, NoSeconds);
     LyricsService.Line[] _seekLinesFrom = [];
@@ -27,12 +30,19 @@ public partial class MainWindow
     void StartSeekLoop()
     {
         _seekFill.Value = _seekFill.Velocity = 0;
+        _seekSquash.Snap(0);
+        _seekOvershoot.Snap(0);
+        SeekScale.ScaleX = SeekScale.ScaleY = 1;
         _seekLoop.Start();
     }
 
     bool AdvanceSeek(double dt)
     {
-        if (_view != View.MediaBig && !_scrubbing) return false;
+        if (_view != View.MediaBig && !_scrubbing)
+        {
+            SeekScale.ScaleX = SeekScale.ScaleY = 1;
+            return false;
+        }
 
         double now = _clock.Elapsed.TotalSeconds;
         TimeSpan duration = _media.Duration;
@@ -43,16 +53,33 @@ public partial class MainWindow
         double shown = _scrubbing || now < _scrubHeldUntil ? _scrubFraction : played;
 
         double track = SeekArea.ActualWidth > 0 ? SeekArea.ActualWidth : SeekTrackWidth;
+        Point? pointer = SeekArea.IsMouseOver || _scrubbing ? Mouse.GetPosition(SeekArea) : null;
+
         _seekFill.Target = track * shown;
-        _seekHeight.Target = _scrubbing ? SeekDragHeight : SeekHeight;
         _seekFill.Advance(dt);
+
+        _seekSquash.Target = _scrubbing ? Math.Clamp(Math.Abs(_seekFill.Velocity) / SeekSquashSpeed, 0, 1) : 0;
+        _seekSquash.Advance(dt);
+
+        _seekHeight.Target = _scrubbing ? SeekDragHeight * (1 - SeekMaxSquash * Math.Clamp(_seekSquash.Value, 0, 1)) : SeekHeight;
         _seekHeight.Advance(dt);
 
+        double overshootTarget = 0;
+        if (_scrubbing && pointer is { } atPointer)
+        {
+            if (atPointer.X < 0) overshootTarget = -SeekMaxOvershoot * (1 - Math.Exp(atPointer.X / SeekOvershootResist));
+            else if (atPointer.X > track) overshootTarget = SeekMaxOvershoot * (1 - Math.Exp(-(atPointer.X - track) / SeekOvershootResist));
+        }
+        if (overshootTarget != 0) _overshootRight = overshootTarget > 0;
+        _seekOvershoot.Target = overshootTarget;
+        _seekOvershoot.Advance(dt);
+        ApplySeekOvershoot(track);
+
+        double bass = SeekBass(_media.IsPlaying);
         SeekPlain.Thickness = SeekLines.Thickness = Math.Max(_seekHeight.Value, MinSeekHeight);
         SeekPlain.Fill = SeekLines.Fill = Math.Clamp(_seekFill.Value, 0, track);
-        double? pointer = SeekArea.IsMouseOver || _scrubbing ? Mouse.GetPosition(SeekLines).X : null;
-        SeekPlain.Advance(dt, pointer, Settings.SeekHover);
-        SeekLines.Advance(dt, pointer, Settings.SeekHover);
+        SeekPlain.Advance(dt, pointer, _scrubbing, Settings.SeekHover, _seekFill.Velocity, _media.IsPlaying, bass);
+        SeekLines.Advance(dt, pointer, _scrubbing, Settings.SeekHover, _seekFill.Velocity, _media.IsPlaying, bass);
         MarkLineStarts(duration);
         FillSungLine();
         AdvancePlayerLyrics(now, dt);
@@ -65,6 +92,29 @@ public partial class MainWindow
         PosText.Text = counted ? FormatTime(at) : NoTime;
         RemText.Text = known ? "-" + FormatTime(duration - at) : NoTime;
         return true;
+    }
+
+    void ApplySeekOvershoot(double track)
+    {
+        double push = Math.Clamp(_seekOvershoot.Value, -SeekMaxOvershoot * 1.4, SeekMaxOvershoot * 1.4);
+        if (Math.Abs(push) <= 0.01)
+        {
+            SeekScale.ScaleX = SeekScale.ScaleY = 1;
+            return;
+        }
+        SeekStretch.RenderTransformOrigin = new Point(_overshootRight ? 0 : 1, 0.5);
+        double signed = _overshootRight ? push : -push;
+        SeekScale.ScaleX = Math.Max(0.85, 1 + signed / track);
+        SeekScale.ScaleY = Math.Max(0.65, 1 - signed / SeekMaxOvershoot * SeekOvershootSquash);
+    }
+
+    double SeekBass(bool playing)
+    {
+        if (!playing) return 0;
+        int count = Math.Max(1, Eq.Bars / 3);
+        double sum = 0;
+        for (int b = 0; b < count; b++) sum += Eq.Level(b);
+        return sum / count;
     }
 
     void MarkLineStarts(TimeSpan duration)
@@ -107,7 +157,7 @@ public partial class MainWindow
 
         _scrubbing = true;
         _scrubFraction = SeekFraction(e);
-        _seekFill.Tune(900, 60);
+        _seekFill.Tune(780, 48);
         PosText.Foreground = RemText.Foreground = Brushes.White;
         SeekArea.CaptureMouse();
     }

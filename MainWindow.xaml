@@ -488,6 +488,23 @@
 
             <Border x:Name="Pill" Background="Transparent" HorizontalAlignment="Center" VerticalAlignment="Top"/>
 
+            <Canvas x:Name="Backdrops" IsHitTestVisible="False" UseLayoutRounding="False">
+                <Grid x:Name="BackdropBox">
+                    <local:WashFill x:Name="MiniWash" Visibility="Collapsed" Opacity="0"/>
+                    <Grid x:Name="MediaBigBackdrop" Visibility="Collapsed" Opacity="0">
+                        <local:CoverBackdrop x:Name="PlayerCover" VerticalAlignment="Stretch" Visibility="Collapsed"/>
+                        <local:Aura x:Name="Glow" VerticalAlignment="Stretch"/>
+                    </Grid>
+                    <Border x:Name="ClockGlow" Visibility="Collapsed" Opacity="0"/>
+                    <Grid x:Name="RecordBackdrop" Visibility="Collapsed" Opacity="0">
+                        <Border x:Name="RecordGlow"/>
+                    </Grid>
+                    <Grid x:Name="WeatherBackdrop" Visibility="Collapsed" Opacity="0">
+                        <Border x:Name="WeatherGlow"/>
+                    </Grid>
+                </Grid>
+            </Canvas>
+
             <Grid x:Name="Host">
 
                 <Grid x:Name="IdleView" Width="118" Height="34" HorizontalAlignment="Center" VerticalAlignment="Top">
@@ -496,7 +513,6 @@
                 </Grid>
 
                 <Grid x:Name="MediaView" Width="210" Height="34" HorizontalAlignment="Center" VerticalAlignment="Top">
-                    <local:WashFill x:Name="MiniWash" IsHitTestVisible="False"/>
                     <Canvas x:Name="LyricBox" Height="34" Margin="36,0,41,0" VerticalAlignment="Center"
                             Background="Transparent" ClipToBounds="True" IsHitTestVisible="False"
                             SizeChanged="LyricBox_SizeChanged">
@@ -652,8 +668,6 @@
                 </Grid>
 
                 <Grid x:Name="MediaBigView" Width="380" Height="176" HorizontalAlignment="Center" VerticalAlignment="Top">
-                    <local:CoverBackdrop x:Name="PlayerCover" VerticalAlignment="Stretch" IsHitTestVisible="False" Visibility="Collapsed"/>
-                    <local:Aura x:Name="Glow" Height="176" VerticalAlignment="Bottom" IsHitTestVisible="False"/>
                     <local:StarField x:Name="PlayerStars" Height="176" VerticalAlignment="Bottom" IsHitTestVisible="False" Visibility="Collapsed"/>
                     <local:DotMatrix x:Name="PlayerMatrix" Height="176" VerticalAlignment="Bottom" IsHitTestVisible="False" Visibility="Collapsed"/>
 
@@ -690,7 +704,10 @@
                         <Border x:Name="SeekArea" Grid.Column="1" Background="Transparent" Cursor="Hand"
                                 MouseLeftButtonDown="Seek_MouseLeftButtonDown" MouseMove="Seek_MouseMove"
                                 MouseLeftButtonUp="Seek_MouseLeftButtonUp" LostMouseCapture="Seek_LostMouseCapture">
-                            <Grid>
+                            <Grid x:Name="SeekStretch" RenderTransformOrigin="0.5,0.5">
+                                <Grid.RenderTransform>
+                                    <ScaleTransform x:Name="SeekScale"/>
+                                </Grid.RenderTransform>
                                 <local:LineBar x:Name="SeekPlain" Solid="True" IsHitTestVisible="False"/>
                                 <local:LineBar x:Name="SeekLines" Opacity="0" IsHitTestVisible="False"/>
                             </Grid>
@@ -736,7 +753,6 @@
                 </Grid>
 
                 <Grid x:Name="IdleBigView" Width="320" Height="124" HorizontalAlignment="Center" VerticalAlignment="Top">
-                    <Border x:Name="ClockGlow" IsHitTestVisible="False" Opacity="0.18"/>
                     <StackPanel Margin="26,0,0,2" HorizontalAlignment="Left" VerticalAlignment="Center">
                         <local:Digits x:Name="BigClock" Text="00:00" FontSize="46" FontWeight="SemiBold"
                                       FontFamily="{StaticResource Display}"/>
@@ -847,7 +863,6 @@
                 </Grid>
 
                 <Grid x:Name="RecordBigView" Width="340" Height="92" HorizontalAlignment="Center" VerticalAlignment="Top">
-                    <Border x:Name="RecordGlow" IsHitTestVisible="False"/>
                     <local:Puddle HorizontalAlignment="Left" VerticalAlignment="Center" Margin="20,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <Button Style="{StaticResource IconButton}" Width="50" Height="50" local:Puddle.Tint="#FF453A" Click="RecordStop_Click">
@@ -1210,6 +1225,13 @@
                                         <local:Segments x:Name="SeekHoverSegments" Style="{StaticResource RowSegments}" Labels="Лупа|Строка|Волна"/>
                                     </Grid>
                                 </Button>
+                                <Button Style="{StaticResource RowButton}" Click="SeekGlow_Click">
+                                    <Grid>
+                                        <local:Icon Style="{StaticResource RowIcon}" Kind="Sparkle"/>
+                                        <TextBlock Style="{StaticResource RowLabel}" Text="Свечение полосы"/>
+                                        <local:Toggle x:Name="SeekGlowSwitch" Style="{StaticResource RowSwitch}"/>
+                                    </Grid>
+                                </Button>
                                 <Button Style="{StaticResource RowButton}" Click="CompactProgress_Click">
                                     <Grid>
                                         <local:Icon Style="{StaticResource RowIcon}" Kind="Rim"/>
@@ -1386,7 +1408,6 @@
                 </Grid>
 
                 <Grid x:Name="WeatherView" Width="340" Height="190" HorizontalAlignment="Center" VerticalAlignment="Top">
-                    <Border x:Name="WeatherGlow" IsHitTestVisible="False"/>
                     <StackPanel x:Name="WeatherBody" Margin="10,8,10,0" VerticalAlignment="Top">
                         <local:RowList>
                             <Button Style="{StaticResource BackButton}" Content="ПОГОДА" Click="SettingsBack_Click"/>

@@ -80,7 +80,7 @@ public partial class MainWindow : Window
     static readonly TimeSpan LongCollapseDelay = TimeSpan.FromSeconds(2.5);
     static readonly TimeSpan AwayDuration = TimeSpan.FromSeconds(5);
 
-    readonly Dictionary<View, FrameworkElement> _views;
+    readonly Dictionary<View, FrameworkElement> _views, _backdrops;
     readonly SolidColorBrush _dim, _orange, _green, _red, _indigo;
     readonly AudioService _audio = new();
     readonly MediaService _media;
@@ -142,6 +142,14 @@ public partial class MainWindow : Window
             [View.Lyrics] = LyricsPage,
             [View.Loading] = LoadingView,
         };
+        _backdrops = new()
+        {
+            [View.Media] = MiniWash,
+            [View.MediaBig] = MediaBigBackdrop,
+            [View.IdleBig] = ClockGlow,
+            [View.RecordBig] = RecordBackdrop,
+            [View.Weather] = WeatherBackdrop,
+        };
         _spotSprings = [_coverLeft, _coverTop, _coverSize, _barsRight, _barsCenterY, _barsWidth, _barsHeight, _barsOpen];
         _springs =
         [
@@ -200,6 +208,11 @@ public partial class MainWindow : Window
             view.Visibility = Visibility.Collapsed;
             view.Opacity = 0;
         }
+        foreach (FrameworkElement backdrop in _backdrops.Values)
+        {
+            backdrop.Visibility = Visibility.Collapsed;
+            backdrop.Opacity = 0;
+        }
         IdleView.Visibility = Visibility.Visible;
         IdleView.Opacity = 1;
 
@@ -211,6 +224,7 @@ public partial class MainWindow : Window
         Eq.Fill = _accentBrush;
         Eq.Dots = Settings.Dots;
         SeekLines.Accent = _accentBrush;
+        SeekPlain.Glow = SeekLines.Glow = Settings.SeekGlow;
         PlayerMatrix.Rounding = PillShapes[View.MediaBig].Radius;
         SyncBackdrop();
         SyncTimerPresets();
@@ -414,6 +428,7 @@ public partial class MainWindow : Window
 
         _morphing = true;
         SwitchView(_views[target], MenuDirection(previous, target));
+        SwitchBackdrop(target);
         if (target == View.Place) BeginTyping();
         else if (previous == View.Place) EndTyping();
         MoveMediaSpot(previous, target, to);

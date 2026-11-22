@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 
@@ -124,6 +125,9 @@ public partial class MainWindow
         Pill.Width = w;
         Pill.Height = h;
         Pill.CornerRadius = new CornerRadius(r);
+        Canvas.SetLeft(BackdropBox, pill.Left);
+        BackdropBox.Width = w;
+        BackdropBox.Height = h;
         Shadow.Opacity = 0.34 + 0.66 * Math.Clamp((h - CompactMaxHeight) / ShadowFadeHeight, 0, 1);
 
         FitMediaViews(w, h);
@@ -150,7 +154,9 @@ public partial class MainWindow
             _clipRect = pill;
             _clipRadius = r;
             Geometry pillOutline = Squircle.Of(pill, r);
+            (Rect inside, double insideRadius) = Body.PillInside;
             Host.Clip = Shared.Clip = GestureHints.Clip = pillOutline;
+            Backdrops.Clip = inside.IsEmpty ? pillOutline : Squircle.Of(inside, insideRadius);
             Shadow.Data = outer ?? pillOutline;
             Shadow.Clip = _glass.IsOn ? Around(Shadow.Data) : null;
         }

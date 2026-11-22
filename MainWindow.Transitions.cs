@@ -13,6 +13,7 @@ public partial class MainWindow
     const double FadeOutScale = 0.9, FadeInScale = 0.86;
     static readonly TimeSpan RowStagger = TimeSpan.FromMilliseconds(28);
     static readonly TimeSpan FadeInDelay = TimeSpan.FromMilliseconds(70);
+    static readonly Duration BackdropFadeIn = Ms(280), BackdropFadeOut = Ms(160);
 
     static TransformGroup CreateViewTransforms() => new() { Children = { new ScaleTransform(1, 1), new ScaleTransform(1, 1), new TranslateTransform() } };
 
@@ -24,10 +25,46 @@ public partial class MainWindow
 
     static bool IsHidden(FrameworkElement view) => view.Visibility != Visibility.Visible || view.Opacity < BarelyVisible;
 
-    static UIElementCollection? RowsOf(FrameworkElement view) =>
-        view is Grid grid ? grid.Children.OfType<StackPanel>().FirstOrDefault()?.Children : null;
+    static UIElementCollection? RowsOf(FrameworkElement view) => view is Grid { Children: [StackPanel list] } ? list.Children : null;
 
     bool IsCurrent(FrameworkElement view) => view == Shared ? MediaSpots.ContainsKey(_view) : _views[_view] == view;
+
+    bool IsCurrentBackdrop(FrameworkElement backdrop) =>
+        _backdrops.TryGetValue(_view, out FrameworkElement? current) && current == backdrop;
+
+    void SwitchBackdrop(View target)
+    {
+        _backdrops.TryGetValue(target, out FrameworkElement? next);
+        foreach (FrameworkElement backdrop in _backdrops.Values)
+        {
+            if (backdrop == next || backdrop.Visibility != Visibility.Visible) continue;
+            HideBackdrop(backdrop);
+        }
+        if (next != null) ShowBackdrop(next);
+    }
+
+    static void ShowBackdrop(FrameworkElement backdrop)
+    {
+        backdrop.Visibility = Visibility.Visible;
+        backdrop.BeginAnimation(OpacityProperty, new DoubleAnimation(1, BackdropFadeIn)
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        });
+    }
+
+    void HideBackdrop(FrameworkElement backdrop)
+    {
+        var fade = new DoubleAnimation(0, BackdropFadeOut)
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+        fade.Completed += (_, _) =>
+        {
+            if (IsCurrentBackdrop(backdrop)) return;
+            backdrop.Visibility = Visibility.Collapsed;
+        };
+        backdrop.BeginAnimation(OpacityProperty, fade);
+    }
 
     void SwitchView(FrameworkElement next, int direction)
     {

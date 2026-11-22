@@ -257,6 +257,12 @@ public partial class MainWindow
         RefreshLookPage();
     }
 
+    void SeekGlow_Click(object sender, RoutedEventArgs e)
+    {
+        SeekPlain.Glow = SeekLines.Glow = Settings.SeekGlow = !Settings.SeekGlow;
+        RefreshLookPage();
+    }
+
     void CompactProgress_Click(object sender, RoutedEventArgs e)
     {
         Settings.CompactProgress = (CompactProgress)CompactProgressSegments.PickUnderPointer();
@@ -379,6 +385,7 @@ public partial class MainWindow
         DotsSegments.Set(Settings.Dots ? 1 : 0, LookView.IsVisible);
         SeekStyleSegments.Set(Settings.LineBar ? 1 : 0, LookView.IsVisible);
         SeekHoverSegments.Set((int)Settings.SeekHover, LookView.IsVisible);
+        SeekGlowSwitch.Set(Settings.SeekGlow, LookView.IsVisible);
         CompactProgressSegments.Set((int)Settings.CompactProgress, LookView.IsVisible);
         GlassSwitch.Set(Settings.Glass, LookView.IsVisible);
         ((RadioButton)BackdropStrip.Children[(int)Settings.Backdrop]).IsChecked = true;

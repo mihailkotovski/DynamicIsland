@@ -227,13 +227,13 @@ public partial class MainWindow
     bool UpdateMiniProgress(bool playing = false, double now = 0, double dt = 0.016)
     {
         CompactProgress style = Settings.CompactProgress;
-        bool known = _view == View.Media && _media.HasTrack && _media.Duration.TotalSeconds >= 1;
-        double progress = known ? Math.Clamp(_media.Progress, 0, 1) : 0;
+        bool hasProgress = _media.HasTrack && _media.Duration.TotalSeconds >= 1;
+        double progress = hasProgress ? Math.Clamp(_media.Progress, 0, 1) : 0;
 
-        bool wash = known && style == CompactProgress.Wash;
+        bool wash = hasProgress && style == CompactProgress.Wash && (_view == View.Media || MiniWash.Visibility == Visibility.Visible);
         bool washMoving = MiniWash.Tick(Eq, progress, wash, playing, now, dt);
 
-        bool ring = known && style == CompactProgress.Ring;
+        bool ring = _view == View.Media && hasProgress && style == CompactProgress.Ring;
         if (ring) ArtRing.Progress = progress;
         UpdateArtRingOpacity(Math.Max(_coverSize.Value, 1));
         return washMoving;

@@ -46,7 +46,7 @@ public partial class MainWindow
                 >= 17 and < 22 => Color.FromRgb(0xFF, 0x9F, 0x0A),
                 _ => Color.FromRgb(0x7D, 0x7A, 0xFF),
             };
-            var glow = new RadialGradientBrush(tint, tint.WithAlpha(0))
+            var glow = new RadialGradientBrush(tint.WithAlpha(0.18), tint.WithAlpha(0))
             {
                 Center = new Point(0.18, 0.25),
                 GradientOrigin = new Point(0.18, 0.25),

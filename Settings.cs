@@ -77,6 +77,7 @@ static class Settings
     static Place? _place = ReadPlace();
     static bool _dots = ReadSwitch(nameof(Dots), false);
     static bool _lineBar = ReadSwitch(nameof(LineBar));
+    static bool _seekGlow = ReadSwitch(nameof(SeekGlow));
     static bool _glass = ReadSwitch(nameof(Glass), false);
     static Backdrop _backdrop = (Backdrop)Math.Clamp(Read(nameof(Backdrop), 0), 0, (int)Backdrop.Cover);
     static LyricChange _lyricChange = (LyricChange)Math.Clamp(Read(nameof(LyricChange), (int)LyricChange.Wave), 0, (int)LyricChange.Drum);
@@ -98,6 +99,12 @@ static class Settings
     {
         get => _lineBar;
         set => Write(nameof(LineBar), _lineBar = value);
+    }
+
+    public static bool SeekGlow
+    {
+        get => _seekGlow;
+        set => Write(nameof(SeekGlow), _seekGlow = value);
     }
 
     public static bool Glass

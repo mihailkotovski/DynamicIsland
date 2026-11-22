@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace DynamicIsland;
 
@@ -19,8 +20,20 @@ public sealed class LineBar : FrameworkElement
     const double LiftThickness = 12, LitAheadOpacity = 0.45, DimmedShare = 0.45;
     const double WaveThickness = 10, WaveSpeed = 800;
     const double TipFontSize = 12, TipPadding = 10, TipHeight = 22, TipLift = 4, TipRise = 4;
+    const int GlowSpriteWidth = 256, GlowSpriteHeight = 128;
+    const double GlowTipOffset = 0.96;
+    const double GlowMaxTail = 136, GlowFadeIn = 32, GlowHalfHeight = 38;
+    const double GlowPausedAlpha = 0.38, GlowWakeSeconds = 0.35, GlowSleepSeconds = 0.75;
+    const double GlowBassAttack = 0.07, GlowBassRelease = 0.38;
+    const double GlowSpeedScale = 700, GlowFwdTailBoost = 0.42, GlowRevTailShrink = 0.45;
+    const double GlowFwdAlphaBoost = 0.22, GlowRevAlphaDrop = 0.35, GlowFwdNarrow = 0.1;
+    const double GlowBassAlpha = 0.18, GlowBassSpread = 0.15, GlowBassTail = 0.08;
+    const double MaxBow = 9, BowResist = 28, BowClipPad = 32;
+    const double DetentImpulse = 120;
+    const double CapTolerance = 0.05;
 
     static readonly Brush TipBack = Shades.Frozen(new SolidColorBrush(Color.FromArgb(0xF0, 0x24, 0x24, 0x24)));
+    static readonly BitmapSource GlowSprite = CreateGlowSprite();
 
     public static readonly DependencyProperty AccentProperty = DependencyProperty.Register(
         nameof(Accent), typeof(SolidColorBrush), typeof(LineBar),
@@ -33,16 +46,19 @@ public sealed class LineBar : FrameworkElement
         public string? Text { get; } = text;
         public double Center => (Left + Right) / 2;
         public Spring Rise { get; } = new(RestThickness);
+        public Spring Detent { get; } = new(0, 520, 22);
         public bool Raised { get; set; }
     }
 
     readonly record struct Ripple(double At, double From, bool Swelling);
 
     readonly Shades _shades = new();
-    readonly RadialGradientBrush _bloom = new(Colors.White, Colors.Transparent);
+    readonly ImageBrush _glowMask = new(GlowSprite) { Stretch = Stretch.Fill, ViewportUnits = BrushMappingMode.Absolute };
     readonly List<Column> _columns = [];
     readonly List<Ripple> _ripples = [];
     readonly Spring _focus = new(0, 300, 30), _tipShown = new(0, 300, 30), _tipX = new(0, 420, 32);
+    readonly Spring _scrubBlend = new(0, 480, 32), _glowSpeed = new(0, 260, 22);
+    readonly Spring _bowY = new(0, 320, 17), _bowX = new(0, 380, 26);
 
     double[] _starts = [];
     string[] _texts = [];
@@ -51,8 +67,9 @@ public sealed class LineBar : FrameworkElement
     bool _columnsStale = true;
     SeekHover _hover = SeekHover.Magnifier;
     double _time, _lastX;
-    bool _pointed, _swollen;
-    int _pointedColumn = -1;
+    double _glowActivity = 1, _glowBass;
+    bool _pointed, _swollen, _glow = true;
+    int _pointedColumn = -1, _lastFillColumn = -1;
     string _tipText = "";
 
     public SolidColorBrush Accent
@@ -62,6 +79,17 @@ public sealed class LineBar : FrameworkElement
     }
 
     public bool Solid { get; set; }
+
+    public bool Glow
+    {
+        get => _glow;
+        set
+        {
+            if (value == _glow) return;
+            _glow = value;
+            InvalidateVisual();
+        }
+    }
 
     public bool HasMarks => _starts.Length > 0;
 
@@ -104,7 +132,7 @@ public sealed class LineBar : FrameworkElement
         return nearest;
     }
 
-    internal void Advance(double dt, double? pointer, SeekHover hover)
+    internal void Advance(double dt, Point? pointer, bool scrubbing, SeekHover hover, double fillVelocity, bool playing, double bass)
     {
         double width = ActualWidth;
         if (width <= 0) return;
@@ -125,7 +153,7 @@ public sealed class LineBar : FrameworkElement
 
         _time += dt;
         bool pointed = pointer.HasValue;
-        double x = Math.Clamp(pointer ?? _lastX, 0, width);
+        double x = Math.Clamp(pointer?.X ?? _lastX, 0, width);
         if (pointed != _pointed)
         {
             _pointed = pointed;
@@ -134,12 +162,56 @@ public sealed class LineBar : FrameworkElement
         if (pointed) _lastX = x;
         _pointedColumn = pointed ? ColumnAt(x) : -1;
 
+        if (!Solid && _columns.Count > 1)
+        {
+            int fillColumn = ColumnAt(Math.Clamp(_fill, 0, width));
+            if (scrubbing && _lastFillColumn >= 0 && fillColumn != _lastFillColumn)
+            {
+                int step = fillColumn > _lastFillColumn ? 1 : -1;
+                for (int i = _lastFillColumn + step; ; i += step)
+                {
+                    _columns[i].Detent.Velocity += DetentImpulse;
+                    if (i == fillColumn) break;
+                }
+            }
+            _lastFillColumn = scrubbing ? fillColumn : -1;
+        }
+        else
+        {
+            _lastFillColumn = -1;
+        }
+
         foreach (Column column in _columns)
         {
             column.Rise.Target = RiseFor(column, x);
             column.Rise.Advance(dt);
+            column.Detent.Advance(dt);
         }
         ForgetPassedRipples(width);
+
+        _scrubBlend.Target = scrubbing ? 1 : 0;
+        _scrubBlend.Advance(dt);
+
+        double activityTarget = playing || scrubbing ? 1 : GlowPausedAlpha;
+        _glowActivity += (activityTarget - _glowActivity) * (1 - Math.Exp(-dt / (playing || scrubbing ? GlowWakeSeconds : GlowSleepSeconds)));
+        double bassTarget = playing ? Math.Clamp(bass, 0, 1) : 0;
+        _glowBass += (bassTarget - _glowBass) * (1 - Math.Exp(-dt / (bassTarget > _glowBass ? GlowBassAttack : GlowBassRelease)));
+        _glowSpeed.Target = Math.Clamp(fillVelocity / GlowSpeedScale, -1, 1);
+        _glowSpeed.Advance(dt);
+
+        if (scrubbing && pointer is { } at)
+        {
+            double dy = at.Y - ActualHeight / 2;
+            _bowY.Target = Math.Sign(dy) * MaxBow * (1 - Math.Exp(-Math.Abs(dy) / BowResist));
+            if (Math.Abs(_bowY.Value) < 0.05) _bowX.Snap(x);
+            _bowX.Target = x;
+        }
+        else
+        {
+            _bowY.Target = 0;
+        }
+        _bowY.Advance(dt);
+        _bowX.Advance(dt);
 
         bool lifting = _hover == SeekHover.Lift && _pointedColumn >= 0;
         string? text = lifting ? _columns[_pointedColumn].Text : null;
@@ -162,6 +234,7 @@ public sealed class LineBar : FrameworkElement
         _columns.Clear();
         _columnsWidth = width;
         _columnsStale = false;
+        _lastFillColumn = -1;
         if (Solid)
         {
             int count = Math.Max(1, (int)Math.Ceiling(width / SampleStep));
@@ -233,7 +306,21 @@ public sealed class LineBar : FrameworkElement
         return column.Raised;
     }
 
-    double ThicknessOf(Column column) => Math.Max(MinThickness, Math.Max(_thickness, column.Rise.Value));
+    double ThicknessOf(Column column)
+    {
+        double hover = Math.Max(_thickness, column.Rise.Value);
+        double blend = Math.Clamp(_scrubBlend.Value, 0, 1);
+        return Math.Max(MinThickness, hover + (_thickness - hover) * blend + column.Detent.Value);
+    }
+
+    double BowAt(double x, double width)
+    {
+        if (Math.Abs(_bowY.Value) < 0.02 || width <= 0) return 0;
+        double t = Math.Clamp(x / width, 0, 1);
+        double ends = Math.Sin(Math.PI * t);
+        double focus = Math.Exp(-Math.Pow((x - _bowX.Value) / (width * 0.38), 2));
+        return _bowY.Value * ends * (0.45 + 0.55 * focus);
+    }
 
     List<double> Edges(double width)
     {
@@ -260,45 +347,43 @@ public sealed class LineBar : FrameworkElement
 
     void RenderSolid(DrawingContext dc, double width, double middle, double fill)
     {
+        if (fill > 2) DrawGlow(dc, width, fill, middle, ThicknessOf(_columns[ColumnAt(fill)]), Colors.White, 1);
+
         Geometry shape = SolidShape(width, middle);
         dc.DrawGeometry(Shades.White(UnplayedOpacity), null, shape);
         if (fill <= 0) return;
 
         double radius = Math.Min(ThicknessOf(_columns[ColumnAt(fill)]) / 2, width / 2);
+        double capX = fill - radius;
+        double capY = middle + BowAt(Math.Max(0, capX), width);
         var reach = new CombinedGeometry(GeometryCombineMode.Union,
-            new RectangleGeometry(new Rect(0, 0, Math.Max(0, fill - radius), ActualHeight)),
-            new EllipseGeometry(new Point(fill - radius, middle), radius, radius));
-        dc.PushClip(reach);
-        dc.DrawGeometry(Brushes.White, null, shape);
-        dc.Pop();
-
-        if (_pointed && fill > 2)
-        {
-            double thick = ThicknessOf(_columns[ColumnAt(fill)]);
-            _bloom.GradientStops[0].Color = Colors.White.WithAlpha(0.32);
-            _bloom.GradientStops[1].Color = Colors.Transparent;
-            dc.DrawEllipse(_bloom, null, new Point(fill - radius * 0.4, middle), thick * 1.1, thick * 1.1);
-        }
+            new RectangleGeometry(new Rect(0, -BowClipPad, Math.Max(0, capX), ActualHeight + BowClipPad * 2)),
+            new EllipseGeometry(new Point(capX, capY), radius, radius));
+        Geometry filled = Geometry.Combine(shape, reach, GeometryCombineMode.Intersect, null, CapTolerance, ToleranceType.Absolute);
+        filled.Freeze();
+        dc.DrawGeometry(Brushes.White, null, filled);
     }
 
     Geometry SolidShape(double width, double middle)
     {
         double left = Math.Min(ThicknessOf(_columns[0]) / 2, width / 2);
         double right = Math.Min(ThicknessOf(_columns[^1]) / 2, width / 2);
+        double leftY = middle + BowAt(left, width);
+        double rightY = middle + BowAt(width - right, width);
         var shape = new StreamGeometry();
         using (StreamGeometryContext outline = shape.Open())
         {
-            outline.BeginFigure(new Point(left, middle - left), true, true);
+            outline.BeginFigure(new Point(left, leftY - left), true, true);
             foreach (Column column in _columns)
                 if (column.Center > left && column.Center < width - right)
-                    outline.LineTo(new Point(column.Center, middle - ThicknessOf(column) / 2), true, true);
-            outline.LineTo(new Point(width - right, middle - right), true, true);
-            outline.ArcTo(new Point(width - right, middle + right), new Size(right, right), 0, false, SweepDirection.Clockwise, true, true);
+                    outline.LineTo(new Point(column.Center, middle + BowAt(column.Center, width) - ThicknessOf(column) / 2), true, true);
+            outline.LineTo(new Point(width - right, rightY - right), true, true);
+            outline.ArcTo(new Point(width - right, rightY + right), new Size(right, right), 0, false, SweepDirection.Clockwise, true, true);
             for (int i = _columns.Count - 1; i >= 0; i--)
                 if (_columns[i].Center > left && _columns[i].Center < width - right)
-                    outline.LineTo(new Point(_columns[i].Center, middle + ThicknessOf(_columns[i]) / 2), true, true);
-            outline.LineTo(new Point(left, middle + left), true, true);
-            outline.ArcTo(new Point(left, middle - left), new Size(left, left), 0, false, SweepDirection.Clockwise, true, true);
+                    outline.LineTo(new Point(_columns[i].Center, middle + BowAt(_columns[i].Center, width) + ThicknessOf(_columns[i]) / 2), true, true);
+            outline.LineTo(new Point(left, leftY + left), true, true);
+            outline.ArcTo(new Point(left, leftY - left), new Size(left, left), 0, false, SweepDirection.Clockwise, true, true);
         }
         shape.Freeze();
         return shape;
@@ -306,12 +391,19 @@ public sealed class LineBar : FrameworkElement
 
     void RenderLines(DrawingContext dc, double middle, double fill)
     {
+        double width = ActualWidth;
         int last = _columns.Count - 1;
         int current = 0;
         while (current < last && _columns[current + 1].Left <= fill) current++;
 
         double focus = Math.Clamp(_focus.Value, 0, 1);
         Color accent = Accent.Color;
+        Column active = _columns[current];
+        double activeRight = active.Right - (current < last ? MarkGap / 2 : 0);
+        double activeDim = current == _pointedColumn ? 1 : 1 - DimmedShare * focus;
+        double tip = Math.Min(fill, activeRight);
+        if (tip > 2) DrawGlow(dc, width, tip, middle, ThicknessOf(active), accent, activeDim);
+
         for (int i = 0; i <= last; i++)
         {
             Column column = _columns[i];
@@ -319,7 +411,8 @@ public sealed class LineBar : FrameworkElement
             if (right <= left) continue;
 
             double thick = ThicknessOf(column);
-            var segment = new Rect(left, middle - thick / 2, right - left, thick);
+            double segMid = middle + BowAt(column.Center, width);
+            var segment = new Rect(left, segMid - thick / 2, right - left, thick);
             double radius = Math.Min(thick, segment.Width) / 2;
             bool pointed = i == _pointedColumn;
             double dim = pointed ? 1 : 1 - DimmedShare * focus;
@@ -341,24 +434,100 @@ public sealed class LineBar : FrameworkElement
             double reach = Math.Min(fill, right);
             var segClip = new RectangleGeometry(segment, radius, radius);
             var fillCap = new CombinedGeometry(GeometryCombineMode.Union,
-                new RectangleGeometry(new Rect(0, 0, Math.Max(0, reach - radius), ActualHeight)),
-                new EllipseGeometry(new Point(reach - radius, middle), radius, radius));
-            dc.PushClip(segClip);
-            dc.PushClip(fillCap);
-            dc.DrawRoundedRectangle(_shades.Of(accent, dim), null, segment, radius, radius);
-            dc.Pop();
-            dc.Pop();
-
-            if (reach > left + 1)
-            {
-                double glowRadius = thick * 1.15;
-                _bloom.GradientStops[0].Color = accent.WithAlpha(0.38 * dim);
-                _bloom.GradientStops[1].Color = accent.WithAlpha(0);
-                dc.DrawEllipse(_bloom, null, new Point(reach - radius * 0.4, middle), glowRadius, glowRadius);
-            }
+                new RectangleGeometry(new Rect(0, -BowClipPad, Math.Max(0, reach - radius), ActualHeight + BowClipPad * 2)),
+                new EllipseGeometry(new Point(reach - radius, segMid), radius, radius));
+            Geometry filled = Geometry.Combine(segClip, fillCap, GeometryCombineMode.Intersect, null, CapTolerance, ToleranceType.Absolute);
+            filled.Freeze();
+            dc.DrawGeometry(_shades.Of(accent, dim), null, filled);
         }
 
         RenderTip(dc, middle);
+    }
+
+    void DrawGlow(DrawingContext dc, double width, double tip, double middle, double thick, Color color, double intensity)
+    {
+        double speed = Math.Clamp(_glowSpeed.Value, -1, 1);
+        double fwd = Math.Max(0, speed), rev = Math.Max(0, -speed);
+        double anchor = tip - thick * 0.35 - fwd * 2.5;
+        if (!_glow || anchor <= 2) return;
+
+        double maxTail = GlowMaxTail * (1 + GlowFwdTailBoost * fwd - GlowRevTailShrink * rev + GlowBassTail * _glowBass);
+        double tail = Math.Min(maxTail, anchor);
+        double intro = Math.Clamp(tail / GlowFadeIn, 0, 1);
+        double motionAlpha = 1 + GlowFwdAlphaBoost * fwd - GlowRevAlphaDrop * rev + GlowBassAlpha * _glowBass;
+        double alpha = Math.Clamp(intensity * intro * _glowActivity * motionAlpha, 0, 1);
+        if (alpha <= 0.005) return;
+
+        double tailShare = Math.Clamp(tail / Math.Max(maxTail, 1), 0, 1);
+        double spreadScale = (1 - GlowFwdNarrow * fwd) * (1 + GlowBassSpread * _glowBass);
+        double halfHeight = Math.Max(thick * 1.4, (GlowHalfHeight + Math.Max(0, thick - RestThickness) * 0.9) * spreadScale * (0.18 + 0.82 * tailShare));
+        double anchorY = middle + BowAt(anchor, width);
+        var rect = new Rect(anchor - tail, anchorY - halfHeight, tail / GlowTipOffset, halfHeight * 2);
+
+        double slopeY = BowAt(anchor, width) - BowAt(Math.Max(0, anchor - 28), width);
+        bool tilted = Math.Abs(slopeY) > 0.05;
+        if (tilted) dc.PushTransform(new RotateTransform(Math.Atan2(slopeY, Math.Min(28, anchor)) * (180 / Math.PI), anchor, anchorY));
+
+        if (color == Colors.White)
+        {
+            dc.PushOpacity(alpha);
+            dc.DrawImage(GlowSprite, rect);
+            dc.Pop();
+        }
+        else
+        {
+            _glowMask.Viewport = rect;
+            dc.PushOpacityMask(_glowMask);
+            dc.DrawRectangle(_shades.Of(color, alpha), null, rect);
+            dc.Pop();
+        }
+
+        if (tilted) dc.Pop();
+    }
+
+    static BitmapSource CreateGlowSprite()
+    {
+        const int width = GlowSpriteWidth, height = GlowSpriteHeight, stride = width * 4;
+        var pixels = new byte[height * stride];
+
+        for (int y = 0; y < height; y++)
+        {
+            double v = Math.Abs((y + 0.5) / height - 0.5) * 2;
+            double edgeV = Math.Clamp(1 - v, 0, 1);
+            edgeV = edgeV * edgeV * (3 - 2 * edgeV);
+            double frontShift = 0.055 * v + 0.16 * v * v;
+            int row = y * stride;
+
+            for (int x = 0; x < width; x++)
+            {
+                double u = (GlowTipOffset - (x + 0.5) / width) / GlowTipOffset;
+                double uEff = u - frontShift;
+                if (uEff <= -0.03) continue;
+
+                double ramp = Math.Clamp((uEff + 0.03) / 0.1, 0, 1);
+                ramp = ramp * ramp * (3 - 2 * ramp);
+                double uPos = Math.Max(uEff, 0);
+                double tail = Math.Clamp(1 - uPos, 0, 1);
+
+                double coneSigma = 0.06 + 0.56 * Math.Pow(uPos, 0.85);
+                double coneVert = Math.Exp(-0.5 * Math.Pow(v / coneSigma, 2));
+                double cone = 0.64 * coneVert * (0.2 + 0.8 * (1 - Math.Exp(-uPos / 0.06))) * Math.Pow(tail, 1.75) * Math.Exp(-0.75 * uPos);
+
+                double coreSigma = 0.048 + 0.19 * Math.Pow(uPos, 0.9);
+                double coreVert = Math.Exp(-0.5 * Math.Pow(v / coreSigma, 2));
+                double core = 0.72 * coreVert * Math.Pow(tail, 2.3) * Math.Exp(-2.1 * uPos);
+
+                double raw = (cone + core) * ramp * edgeV;
+                double alpha = Math.Clamp(1 - Math.Exp(-raw * 1.15), 0, 1);
+                byte level = (byte)Math.Round(alpha * 255);
+                int at = row + x * 4;
+                pixels[at] = pixels[at + 1] = pixels[at + 2] = pixels[at + 3] = level;
+            }
+        }
+
+        var sprite = BitmapSource.Create(width, height, 96, 96, PixelFormats.Pbgra32, null, pixels, stride);
+        sprite.Freeze();
+        return sprite;
     }
 
     void RenderTip(DrawingContext dc, double middle)
